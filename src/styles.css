@@ -730,3 +730,137 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* ============================================================
+   AUTH — 管理员登录 / 관리자 로그인
+   ============================================================ */
+.nav__signin,
+.nav__signout {
+  font-family: var(--label);
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  border: 2px solid var(--ink);
+  padding: 5px 13px 3px;
+  white-space: nowrap;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.nav__signin:hover,
+.nav__signout:hover { background: var(--key); border-color: var(--key); color: #fff; }
+.nav__auth { display: flex; align-items: center; gap: 10px; }
+.nav__user {
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  color: var(--ink-60);
+  max-width: 15ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auth { position: fixed; inset: 0; z-index: 600; display: grid; place-items: center; padding: 20px; }
+.auth__backdrop { position: absolute; inset: 0; background: rgba(13, 13, 13, 0.55); backdrop-filter: blur(3px); }
+.auth__panel {
+  position: relative;
+  width: min(430px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  padding: clamp(24px, 4vw, 38px);
+  box-shadow: 12px 12px 0 var(--key);
+}
+.auth__x {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--ink-60);
+  transition: color 0.2s;
+}
+.auth__x:hover { color: var(--key); }
+.auth__title { font-size: clamp(30px, 5vw, 46px); margin: 8px 0 18px; }
+.auth__lede { font-size: 14.5px; line-height: 1.75; margin: 0 0 14px; }
+.auth__hint { font-size: 12px; line-height: 1.7; color: var(--ink-60); margin: 16px 0 0; }
+.auth__hint code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  background: var(--paper-2);
+  border: 1px solid var(--ink-15);
+  padding: 1px 5px;
+}
+
+.auth__switch { display: flex; gap: 0; border-bottom: 2px solid var(--ink); margin-bottom: 20px; }
+.auth__switch button {
+  flex: 1;
+  font-family: var(--label);
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  padding: 8px 6px 6px;
+  color: var(--ink-40);
+  border-bottom: 4px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.2s, border-color 0.2s;
+}
+.auth__switch button[aria-selected='true'] { color: var(--ink); border-bottom-color: var(--key); }
+
+.auth__form { display: grid; gap: 16px; }
+.auth__field { display: grid; gap: 5px; }
+.auth__field span {
+  font-family: var(--label);
+  font-size: 12.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--key);
+}
+.auth__field input {
+  font-family: var(--body);
+  font-size: 15px;
+  padding: 10px 12px;
+  border: 1px solid var(--ink-15);
+  background: var(--paper-2);
+  color: var(--ink);
+  transition: border-color 0.2s, background 0.2s;
+}
+.auth__field input:focus {
+  outline: none;
+  border-color: var(--key);
+  background: var(--paper);
+}
+.auth__submit {
+  margin-top: 4px;
+  font-family: var(--label);
+  font-size: 16px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 12px 16px 10px;
+  transition: background 0.2s;
+}
+.auth__submit:hover:not(:disabled) { background: var(--key); }
+.auth__submit:disabled { opacity: 0.5; cursor: default; }
+.auth__error {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #fff;
+  background: var(--blood);
+  padding: 9px 12px;
+  margin: 0;
+}
+.auth__notice {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink);
+  background: var(--yellow);
+  border: 1px solid var(--ink);
+  padding: 9px 12px;
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .nav__signin, .nav__signout { font-size: 11px; letter-spacing: 0.08em; padding: 4px 9px 2px; }
+  .nav__user { display: none; }
+  .auth__panel { box-shadow: 7px 7px 0 var(--key); }
+}

@@ -1,12 +1,38 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { PROFILE, TABS, FILMS, IMAGE_GROUPS } from './data/works.js'
 import FilmSection from './components/FilmSection.jsx'
 import ImageSection from './components/ImageSection.jsx'
 import Profile from './components/Profile.jsx'
 import WorkDetail from './components/WorkDetail.jsx'
+import AuthModal from './components/AuthModal.jsx'
+import { supabase, isAuthConfigured } from './lib/supabase.js'
 
 export default function App() {
   const [tab, setTab] = useState('profile')
+  const [authOpen, setAuthOpen] = useState(false)
+  const [user, setUser] = useState(null)
+
+  // 监听登录状态。未配置 Supabase 时直接跳过，不影响站点其余部分。
+  // 로그인 상태 감시. Supabase 미설정 시 건너뛰며 사이트 나머지에는 영향 없음.
+  useEffect(() => {
+    if (!isAuthConfigured) return
+    let active = true
+    supabase.auth.getSession().then(({ data }) => {
+      if (active) setUser(data.session?.user ?? null)
+    })
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUser(session?.user ?? null)
+    })
+    return () => {
+      active = false
+      sub.subscription.unsubscribe()
+    }
+  }, [])
+
+  const signOut = useCallback(async () => {
+    if (isAuthConfigured) await supabase.auth.signOut()
+  }, [])
+
   // 详情：{ list, index } —— list 让图片页每个项目各自独立翻页
   const [detail, setDetail] = useState(null)
 
@@ -41,6 +67,15 @@ export default function App() {
             <button className="nav__link" onClick={() => goTab('film')}>Works</button>
             <button className="nav__link" onClick={() => goTab('profile')}>About</button>
             <a className="nav__link" href="#contact">Contact</a>
+
+            {user ? (
+              <span className="nav__auth">
+                <span className="nav__user" title={user.email}>{user.email}</span>
+                <button className="nav__signout" onClick={signOut}>Sign Out</button>
+              </span>
+            ) : (
+              <button className="nav__signin" onClick={() => setAuthOpen(true)}>Sign In</button>
+            )}
           </nav>
         </div>
         <div className="wrap">
@@ -122,6 +157,8 @@ export default function App() {
       </footer>
 
       {/* ---------- DETAIL ---------- */}
+      {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
+
       {detail && (
         <WorkDetail
           works={detail.list}
