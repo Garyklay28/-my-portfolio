@@ -16,7 +16,8 @@ export default function App() {
   const [user, setUser] = useState(null)
   // 内容：先用代码里的示例数据渲染，再尝试从 Supabase 覆盖
   // 콘텐츠: 먼저 샘플 데이터로 렌더링 후 Supabase 에서 덮어쓰기 시도
-  const [content, setContent] = useState({ source: 'static', films: FILMS, groups: IMAGE_GROUPS })
+  const [content, setContent] = useState({ source: 'static', films: FILMS, groups: IMAGE_GROUPS, profile: PROFILE })
+  const profile = content.profile ?? PROFILE
 
   const refreshContent = useCallback(() => {
     loadContent().then(setContent)
@@ -72,7 +73,7 @@ export default function App() {
       <header className="nav">
         <div className="wrap nav__bar">
           <button className="nav__name" onClick={() => goTab('profile')}>
-            {PROFILE.name}
+            {profile.name}
             <span className="nav__suffix"> <b>/</b> Filmmaker</span>
           </button>
           <nav className="nav__links">
@@ -114,17 +115,17 @@ export default function App() {
         <section className="wrap hero">
           <div className="hero__grid">
             <div>
-              <p className="eyebrow">{PROFILE.role} · Seoul / Beijing</p>
-              <h1 className="slab hero__name">{PROFILE.name}</h1>
+              <p className="eyebrow">{profile.role} · Seoul / Beijing</p>
+              <h1 className="slab hero__name">{profile.name}</h1>
               <p className="hero__tagline">
                 Behind <em>The</em> Image
               </p>
             </div>
 
             <aside className="hero__aside">
-              <blockquote className="quote">{PROFILE.quote}</blockquote>
+              <blockquote className="quote">{profile.quote}</blockquote>
               <div className="hero__roles">
-                {PROFILE.disciplines.map((d) => (
+                {profile.disciplines.map((d) => (
                   <div className="hero__roleitem" key={d.en}>
                     <strong>{d.en}</strong>
                     <small>{d.cn}</small>
@@ -136,7 +137,7 @@ export default function App() {
         </section>
 
         {/* ---------- TAB PANELS ---------- */}
-        {tab === 'profile' && <Profile />}
+        {tab === 'profile' && <Profile profile={profile} />}
         {tab === 'film' && <FilmSection films={content.films} onOpen={(i) => openDetail(content.films, i)} />}
         {tab === 'images' && <ImageSection groups={content.groups} onOpen={openDetail} />}
       </main>
@@ -147,7 +148,7 @@ export default function App() {
           <p className="eyebrow" style={{ color: 'var(--yellow)' }}>Get in touch / 联系方式</p>
           <h2 className="slab contact__title">Contact</h2>
           <dl className="contact__list">
-            {PROFILE.contact.map((c) => (
+            {profile.contact.map((c) => (
               <div className="contact__item" key={c.label}>
                 <dt>{c.label}</dt>
                 <dd>
@@ -164,7 +165,7 @@ export default function App() {
           </dl>
         </div>
         <div className="wrap contact__foot">
-          <span>© {new Date().getFullYear()} {PROFILE.name} — {PROFILE.tagline}</span>
+          <span>© {new Date().getFullYear()} {profile.name} — {profile.tagline}</span>
           <span>Built with React + Vite</span>
         </div>
       </footer>

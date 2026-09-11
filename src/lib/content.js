@@ -1,5 +1,5 @@
 import { supabase, isAuthConfigured } from './supabase.js'
-import { FILMS, IMAGE_GROUPS } from '../data/works.js'
+import { FILMS, IMAGE_GROUPS, PROFILE } from '../data/works.js'
 
 /**
  * 内容加载：优先读 Supabase，失败或为空时回退到 src/data/works.js 的示例数据。
@@ -9,7 +9,66 @@ import { FILMS, IMAGE_GROUPS } from '../data/works.js'
  * 덕분에 DB 미생성·네트워크 장애·빈 테이블 상황에서도 사이트가 정상 동작합니다.
  */
 
-const STATIC = { source: 'static', films: FILMS, groups: IMAGE_GROUPS }
+const STATIC = { source: 'static', films: FILMS, groups: IMAGE_GROUPS, profile: PROFILE }
+
+/** DB 行 → PROFILE 形状；缺失的字段回退到示例数据
+ *  DB 행 → PROFILE 형태; 누락 필드는 샘플 데이터로 폴백 */
+function toProfile(row) {
+  if (!row) return PROFILE
+  const pick = (v, fb) => (v === null || v === undefined || v === '' ? fb : v)
+  const list = (v, fb) => (Array.isArray(v) && v.length ? v : fb)
+  return {
+    ...PROFILE,
+    name: pick(row.name, PROFILE.name),
+    nameCn: pick(row.name_cn, PROFILE.nameCn),
+    role: pick(row.role, PROFILE.role),
+    tagline: pick(row.tagline, PROFILE.tagline),
+    quote: pick(row.quote, PROFILE.quote),
+    bio: pick(row.bio, PROFILE.bio),
+    bioEn: pick(row.bio_en, PROFILE.bioEn),
+    portrait: pick(row.portrait, PROFILE.portrait),
+    disciplines: list(row.disciplines, PROFILE.disciplines),
+    laurels: list(row.laurels, PROFILE.laurels),
+    contact: list(row.contact, PROFILE.contact),
+    education: list(row.education, PROFILE.education),
+    credits: list(row.credits, PROFILE.credits),
+    work: list(row.work, PROFILE.work),
+    awards: list(row.awards, PROFILE.awards),
+  }
+}
+
+/** 读取简介；表不存在或没数据时回退示例数据
+ *  프로필 로딩; 테이블 부재·데이터 없음이면 샘플로 폴백 */
+export async function loadProfile() {
+  if (!isAuthConfigured) return PROFILE
+  try {
+    const { data, error } = await supabase.from('portfolio_profile').select('*').eq('id', 1).maybeSingle()
+    if (error) {
+      console.warn('[profile] 读取失败，回退到示例数据 /', error)
+      return PROFILE
+    }
+    return toProfile(data)
+  } catch (err) {
+    console.warn('[profile] 加载异常，回退到示例数据 /', err)
+    return PROFILE
+  }
+}
+
+/** 保存简介（整行覆盖，id 固定为 1）/ 프로필 저장 (id 1 고정, 전체 덮어쓰기) */
+export async function saveProfile(p) {
+  if (!isAuthConfigured) throw new Error('Supabase 未配置 / Supabase 미설정')
+  const row = {
+    id: 1,
+    name: p.name, name_cn: p.nameCn, role: p.role, tagline: p.tagline,
+    quote: p.quote, bio: p.bio, bio_en: p.bioEn, portrait: p.portrait,
+    disciplines: p.disciplines ?? [], laurels: p.laurels ?? [],
+    contact: p.contact ?? [], education: p.education ?? [],
+    credits: p.credits ?? [], work: p.work ?? [], awards: p.awards ?? [],
+    updated_at: new Date().toISOString(),
+  }
+  const { error } = await supabase.from('portfolio_profile').upsert(row, { onConflict: 'id' })
+  if (error) throw error
+}
 
 /** DB 行 → 组件需要的形状 / DB 행 → 컴포넌트가 기대하는 형태 */
 function toWork(row) {
@@ -32,9 +91,10 @@ export async function loadContent() {
   if (!isAuthConfigured) return STATIC
 
   try {
-    const [projectsRes, worksRes] = await Promise.all([
+    const [projectsRes, worksRes, profile] = await Promise.all([
       supabase.from('portfolio_projects').select('*').order('sort_order', { ascending: true }),
       supabase.from('portfolio_works').select('*').order('sort_order', { ascending: true }),
+      loadProfile(),
     ])
 
     if (projectsRes.error || worksRes.error) {
@@ -43,7 +103,7 @@ export async function loadContent() {
     }
 
     const rows = worksRes.data ?? []
-    if (rows.length === 0) return { ...STATIC, source: 'static-empty' }
+    if (rows.length === 0) return { ...STATIC, source: 'static-empty', profile }
 
     const films = rows.filter((r) => r.kind === 'film').map(toWork)
 
@@ -59,6 +119,7 @@ export async function loadContent() {
 
     return {
       source: 'supabase',
+      profile,
       films: films.length ? films : FILMS,
       groups: groups.filter((g) => g.items.length > 0).length ? groups : IMAGE_GROUPS,
     }

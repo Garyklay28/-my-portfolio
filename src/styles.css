@@ -1060,3 +1060,70 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
   .admin__row { grid-template-columns: auto minmax(0, 1fr); }
   .admin__actions { grid-column: 1 / -1; }
 }
+
+/* ============================================================
+   PROFILE EDITOR — 简介编辑 / 프로필 편집
+   ============================================================ */
+.pe { display: grid; gap: clamp(20px, 3vw, 32px); max-width: 880px; }
+.pe__block { border: 2px solid var(--ink); padding: clamp(14px, 2vw, 22px); display: grid; gap: 13px; }
+.pe__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 13px; }
+
+.pe__laurels { display: flex; flex-wrap: wrap; gap: 12px; }
+.pe__laurel { position: relative; border: 1px solid var(--ink-15); padding: 6px 10px; background: var(--paper); }
+.pe__laurel img { height: 46px; width: auto; display: block; }
+.pe__laurel button {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--blood);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+}
+.pe__addlaurel { justify-self: start; padding: 8px 16px; }
+
+.pe__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: start; }
+.pe__rowfields { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.pe__rowfields input {
+  font-family: var(--body);
+  font-size: 13.5px;
+  padding: 8px 10px;
+  border: 1px solid var(--ink-15);
+  background: var(--paper-2);
+  color: var(--ink);
+  min-width: 0;
+}
+.pe__rowfields input:focus { outline: none; border-color: var(--key); background: var(--paper); }
+.pe__rowacts { display: flex; gap: 4px; }
+.pe__rowacts button {
+  width: 28px;
+  height: 32px;
+  border: 1px solid var(--ink-15);
+  font-size: 13px;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.pe__rowacts button:hover:not(:disabled) { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.pe__rowacts button:disabled { opacity: 0.3; cursor: default; }
+
+.pe__add {
+  justify-self: start;
+  font-family: var(--label);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  border: 2px solid var(--ink);
+  padding: 7px 15px 5px;
+  transition: background 0.2s, color 0.2s;
+}
+.pe__add:hover { background: var(--key); border-color: var(--key); color: #fff; }
+
+.pe__save { position: sticky; bottom: 0; }
+
+@media (max-width: 720px) {
+  .pe__row { grid-template-columns: 1fr; }
+  .pe__rowacts { justify-content: flex-end; }
+}

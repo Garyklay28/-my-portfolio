@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { uploadMedia, seedFromStatic } from '../lib/content.js'
+import ProfileEditor from './ProfileEditor.jsx'
 
 const EMPTY = {
   kind: 'film',
@@ -173,7 +174,7 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
       </div>
 
       <div className="wrap admin__body">
-        {contentSource !== 'supabase' && (
+        {contentSource !== 'supabase' && tab !== 'profile' && (
           <div className="admin__banner">
             <p>
               网站当前显示的是<b>代码里的示例作品</b>，数据库还是空的。点下面的按钮可以把它们一次性导入数据库，之后就能在这里编辑。
@@ -187,8 +188,8 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
         )}
 
         <div className="admin__tabs" role="tablist">
-          {[['film', 'Film 影片'], ['image', 'Images 静帧'], ['projects', 'Projects 项目分组']].map(([id, label]) => (
-            <button key={id} role="tab" aria-selected={tab === id} onClick={() => { setTab(id); resetForm(id) }}>
+          {[['film', 'Film 影片'], ['image', 'Images 静帧'], ['projects', 'Projects 项目分组'], ['profile', 'Profile 简介']].map(([id, label]) => (
+            <button key={id} role="tab" aria-selected={tab === id} onClick={() => { setTab(id); if (id !== 'profile') resetForm(id) }}>
               {label}
             </button>
           ))}
@@ -197,6 +198,9 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
         {err && <p className="auth__error admin__msg">{err}</p>}
         {msg && <p className="auth__notice admin__msg">{msg}</p>}
 
+        {tab === 'profile' ? (
+          <ProfileEditor onSaved={onChanged} />
+        ) : (
         <div className="admin__cols">
           {/* ---------- 表单 / 폼 ---------- */}
           <form className="admin__form" onSubmit={save}>
@@ -285,6 +289,7 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
             ))}
           </div>
         </div>
+        )}
       </div>
     </div>
   )

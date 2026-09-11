@@ -1,7 +1,8 @@
-import { PROFILE } from '../data/works.js'
+import { PROFILE as FALLBACK } from '../data/works.js'
 import SmartImage from './SmartImage.jsx'
 
-export default function Profile() {
+export default function Profile({ profile }) {
+  const PROFILE = profile ?? FALLBACK
   return (
     <section className="wrap profile" id="about">
       <header className="sechead">
