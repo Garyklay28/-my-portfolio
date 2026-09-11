@@ -9,12 +9,10 @@ import { supabase, isAuthConfigured } from '../lib/supabase.js'
  * Supabase 미설정 시 비밀번호 입력란을 아예 렌더링하지 않습니다.
  */
 export default function AuthModal({ onClose }) {
-  const [mode, setMode] = useState('signin') // signin | signup
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
 
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose()
@@ -29,18 +27,11 @@ export default function AuthModal({ onClose }) {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    setNotice('')
     setBusy(true)
     try {
-      if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({ email, password })
-        if (error) throw error
-        setNotice('注册邮件已发送，请到邮箱点击确认链接。/ 확인 메일을 보냈습니다. 메일함에서 링크를 눌러주세요.')
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error) throw error
-        onClose()
-      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) throw error
+      onClose()
     } catch (err) {
       setError(err.message || String(err))
     } finally {
@@ -73,24 +64,7 @@ export default function AuthModal({ onClose }) {
           </>
         ) : (
           <>
-            <h2 className="slab auth__title">{mode === 'signin' ? 'Sign In' : 'Sign Up'}</h2>
-
-            <div className="auth__switch" role="tablist">
-              <button
-                role="tab"
-                aria-selected={mode === 'signin'}
-                onClick={() => { setMode('signin'); setError(''); setNotice('') }}
-              >
-                登录 / 로그인
-              </button>
-              <button
-                role="tab"
-                aria-selected={mode === 'signup'}
-                onClick={() => { setMode('signup'); setError(''); setNotice('') }}
-              >
-                注册 / 가입
-              </button>
-            </div>
+            <h2 className="slab auth__title">Sign In</h2>
 
             <form className="auth__form" onSubmit={handleSubmit}>
               <label className="auth__field">
@@ -113,21 +87,22 @@ export default function AuthModal({ onClose }) {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={8}
-                  autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-                  placeholder="至少 8 位 / 8자 이상"
+                  autoComplete="current-password"
+                  placeholder="••••••••"
                 />
               </label>
 
               {error && <p className="auth__error">{error}</p>}
-              {notice && <p className="auth__notice">{notice}</p>}
 
               <button className="auth__submit" type="submit" disabled={busy}>
-                {busy ? '处理中… / 처리 중…' : mode === 'signin' ? 'Sign In' : 'Sign Up'}
+                {busy ? '登录中… / 로그인 중…' : 'Sign In'}
               </button>
             </form>
 
             <p className="auth__hint">
-              仅供站点管理员使用。/ 사이트 관리자 전용입니다.
+              仅供站点管理员使用，不开放注册。
+              <br />
+              사이트 관리자 전용이며 신규 가입은 받지 않습니다.
             </p>
           </>
         )}
