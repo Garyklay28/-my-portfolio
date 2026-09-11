@@ -1127,3 +1127,11 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
   .pe__row { grid-template-columns: 1fr; }
   .pe__rowacts { justify-content: flex-end; }
 }
+
+/* ============================================================
+   SWIPE — 手机左右滑动切换 / 모바일 좌우 스와이프 전환
+   ============================================================ */
+/* 浏览器只接管竖向滚动和双指缩放，横向手势交给 JS
+   브라우저는 세로 스크롤·핀치 줌만 처리, 가로 제스처는 JS 가 담당 */
+.swipe-area { touch-action: pan-y pinch-zoom; }
+.swipe-panel { will-change: transform; }

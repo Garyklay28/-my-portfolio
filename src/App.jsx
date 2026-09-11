@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { PROFILE, TABS, FILMS, IMAGE_GROUPS } from './data/works.js'
 import { loadContent } from './lib/content.js'
+import { useSwipeTabs } from './lib/useSwipeTabs.js'
 import FilmSection from './components/FilmSection.jsx'
 import ImageSection from './components/ImageSection.jsx'
 import Profile from './components/Profile.jsx'
@@ -48,6 +49,31 @@ export default function App() {
 
   // 详情：{ list, index } —— list 让图片页每个项目各自独立翻页
   const [detail, setDetail] = useState(null)
+
+  // ---------- 手机左右滑动切换 / 모바일 스와이프 전환 ----------
+  const mainRef = useRef(null)
+  const panelRef = useRef(null)
+  const TAB_IDS = TABS.map((t) => t.id)
+  const tabIndex = TAB_IDS.indexOf(tab)
+
+  // 滑动切换时不回到页面最顶端，而是停在内容区开头，避免每次都要重新往下滑
+  // 스와이프 전환 시 페이지 맨 위가 아니라 콘텐츠 시작 지점에 머물러, 매번 다시 내릴 필요 없음
+  const swipeTo = useCallback((id) => {
+    setTab(id)
+    setDetail(null)
+    const panel = panelRef.current
+    if (!panel) return
+    const navH = document.querySelector('.nav')?.offsetHeight ?? 0
+    const top = panel.getBoundingClientRect().top + window.scrollY - navH
+    if (window.scrollY > top) window.scrollTo({ top, behavior: 'instant' })
+  }, [])
+
+  useSwipeTabs(mainRef, panelRef, {
+    canPrev: () => tabIndex > 0,
+    canNext: () => tabIndex < TAB_IDS.length - 1,
+    onPrev: () => swipeTo(TAB_IDS[tabIndex - 1]),
+    onNext: () => swipeTo(TAB_IDS[tabIndex + 1]),
+  })
 
   const goTab = useCallback((id) => {
     setTab(id)
@@ -110,7 +136,7 @@ export default function App() {
         </div>
       </header>
 
-      <main id="top">
+      <main id="top" ref={mainRef} className="swipe-area">
         {/* ---------- HERO ---------- */}
         <section className="wrap hero">
           <div className="hero__grid">
@@ -136,10 +162,12 @@ export default function App() {
           </div>
         </section>
 
-        {/* ---------- TAB PANELS ---------- */}
-        {tab === 'profile' && <Profile profile={profile} />}
-        {tab === 'film' && <FilmSection films={content.films} onOpen={(i) => openDetail(content.films, i)} />}
-        {tab === 'images' && <ImageSection groups={content.groups} onOpen={openDetail} />}
+        {/* ---------- TAB PANELS（手机可左右滑动切换 / 모바일 스와이프 가능）---------- */}
+        <div ref={panelRef} className="swipe-panel">
+          {tab === 'profile' && <Profile profile={profile} />}
+          {tab === 'film' && <FilmSection films={content.films} onOpen={(i) => openDetail(content.films, i)} />}
+          {tab === 'images' && <ImageSection groups={content.groups} onOpen={openDetail} />}
+        </div>
       </main>
 
       {/* ---------- CONTACT ---------- */}
