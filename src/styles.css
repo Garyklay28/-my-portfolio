@@ -1135,3 +1135,43 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
    브라우저는 세로 스크롤·핀치 줌만 처리, 가로 제스처는 JS 가 담당 */
 .swipe-area { touch-action: pan-y pinch-zoom; }
 .swipe-panel { will-change: transform; }
+
+/* ============================================================
+   ADMIN — Images 下的二级标签 + 静帧分组
+   Images 하위 2단계 탭 + 스틸 그룹
+   ============================================================ */
+/* 二级标签做成小药丸，视觉上明显低于主标签
+   2단계 탭은 작은 알약 모양으로, 메인 탭보다 확실히 하위로 보이게 */
+.admin__subtabs { display: flex; gap: 6px; flex-wrap: wrap; margin: -6px 0 20px; }
+.admin__subtabs button {
+  font-family: var(--body);
+  font-size: 12.5px;
+  letter-spacing: 0.03em;
+  padding: 5px 13px;
+  border: 1px solid var(--ink-15);
+  border-radius: 999px;
+  color: var(--ink-60);
+  background: var(--paper);
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.admin__subtabs button:hover { border-color: var(--ink); color: var(--ink); }
+.admin__subtabs button[aria-selected='true'] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+
+.admin__group { display: grid; gap: 8px; }
+.admin__group + .admin__group { margin-top: 16px; }
+.admin__grouphead {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--label);
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--ink-15);
+}
+.admin__grouphead span { color: var(--ink-40); }
+
+.admin__hint { margin: -6px 0 0; font-size: 12px; line-height: 1.7; color: var(--ink-60); }
+.admin__hint button { font-size: 12px; color: var(--key); text-decoration: underline; }

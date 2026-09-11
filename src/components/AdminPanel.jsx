@@ -120,8 +120,8 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
     }
   }
 
-  async function remove(table, id, label) {
-    if (!window.confirm(`确定删除「${label}」？此操作无法撤销。\n"${label}" 을(를) 삭제할까요? 되돌릴 수 없습니다.`)) return
+  async function remove(table, id, label, extra = '') {
+    if (!window.confirm(`确定删除「${label}」？此操作无法撤销。${extra}\n"${label}" 을(를) 삭제할까요? 되돌릴 수 없습니다.`)) return
     setBusy('del'); setErr('')
     try {
       const { error } = await supabase.from(table).delete().eq('id', id)
@@ -160,6 +160,54 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
 
   const list = tab === 'projects' ? projects : works.filter((w) => w.kind === tab)
   const isProjects = tab === 'projects'
+  // 项目分组隶属于 Images：主标签只有 Film / Images / Profile
+  // 프로젝트 그룹은 Images 소속: 메인 탭은 Film / Images / Profile 뿐
+  const inImages = tab === 'image' || tab === 'projects'
+  const stillCount = (projectId) => works.filter((w) => w.kind === 'image' && w.project_id === projectId).length
+
+  // 静帧按项目分组显示（和网站 Images 页结构一致）
+  // 스틸을 프로젝트별로 묶어 표시 (사이트 Images 페이지 구조와 동일)
+  const stillGroups = tab === 'image'
+    ? [
+        ...projects.map((p) => ({ key: p.id, title: p.title, rows: list.filter((w) => w.project_id === p.id) })),
+        {
+          key: 'none',
+          title: '未分组 / 미분류',
+          rows: list.filter((w) => !w.project_id || !projects.some((p) => p.id === w.project_id)),
+        },
+      ].filter((g) => g.key !== 'none' || g.rows.length > 0)
+    : null
+
+  const goProjects = () => { setTab('projects'); resetForm('projects') }
+
+  const renderRow = (row) => (
+    <div className="admin__row" key={row.id}>
+      {!isProjects && (
+        <div className="admin__thumb">
+          {row.image_url ? <img src={row.image_url} alt="" loading="lazy" /> : <span>—</span>}
+        </div>
+      )}
+      <div className="admin__rowmain">
+        <strong>{row.title}</strong>
+        <span>{row.title_cn} {row.meta && `· ${row.meta}`}</span>
+        {isProjects && <span>静帧 {stillCount(row.id)} 张 / 스틸 {stillCount(row.id)}장</span>}
+        {row.video_url && <span className="admin__badge">VIDEO</span>}
+      </div>
+      <div className="admin__actions">
+        <button onClick={() => edit(row)}>编辑</button>
+        <button
+          className="admin__del"
+          onClick={() =>
+            isProjects
+              ? remove('portfolio_projects', row.id, row.title,
+                  `\n⚠️ 这个项目下的 ${stillCount(row.id)} 张静帧也会一起被删除。\n⚠️ 이 프로젝트의 스틸 ${stillCount(row.id)}장도 함께 삭제됩니다.`)
+              : remove('portfolio_works', row.id, row.title)
+          }
+          disabled={busy === 'del'}
+        >删除</button>
+      </div>
+    </div>
+  )
 
   return (
     <div className="admin" role="dialog" aria-modal="true" aria-label="Admin panel">
@@ -188,12 +236,30 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
         )}
 
         <div className="admin__tabs" role="tablist">
-          {[['film', 'Film 影片'], ['image', 'Images 静帧'], ['projects', 'Projects 项目分组'], ['profile', 'Profile 简介']].map(([id, label]) => (
-            <button key={id} role="tab" aria-selected={tab === id} onClick={() => { setTab(id); if (id !== 'profile') resetForm(id) }}>
-              {label}
-            </button>
-          ))}
+          {[['film', 'Film 影片'], ['image', 'Images 图片'], ['profile', 'Profile 简介']].map(([id, label]) => {
+            const selected = id === 'image' ? inImages : tab === id
+            return (
+              <button
+                key={id}
+                role="tab"
+                aria-selected={selected}
+                onClick={() => { if (selected) return; setTab(id); if (id !== 'profile') resetForm(id) }}
+              >
+                {label}
+              </button>
+            )
+          })}
         </div>
+
+        {inImages && (
+          <div className="admin__subtabs" role="tablist" aria-label="Images">
+            {[['image', '静帧 Stills / 스틸'], ['projects', '项目分组 Projects / 프로젝트']].map(([id, label]) => (
+              <button key={id} role="tab" aria-selected={tab === id} onClick={() => { setTab(id); resetForm(id) }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {err && <p className="auth__error admin__msg">{err}</p>}
         {msg && <p className="auth__notice admin__msg">{msg}</p>}
@@ -219,13 +285,22 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
             {!isProjects && (
               <>
                 {tab === 'image' && (
-                  <label className="auth__field">
-                    <span>所属项目 / 소속 프로젝트</span>
-                    <select value={form.project_id ?? ''} onChange={(e) => setForm({ ...form, project_id: e.target.value || null })}>
-                      <option value="">（未分组 / 미분류）</option>
-                      {projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
-                    </select>
-                  </label>
+                  <>
+                    <label className="auth__field">
+                      <span>所属项目 / 소속 프로젝트</span>
+                      <select value={form.project_id ?? ''} onChange={(e) => setForm({ ...form, project_id: e.target.value || null })}>
+                        <option value="">（未分组 / 미분류）</option>
+                        {projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+                      </select>
+                    </label>
+                    {projects.length === 0 && (
+                      <p className="admin__hint">
+                        还没有项目分组。<button type="button" onClick={goProjects}>先去建一个 →</button>
+                        <br />
+                        프로젝트가 없습니다. <button type="button" onClick={goProjects}>먼저 만들기 →</button>
+                      </p>
+                    )}
+                  </>
                 )}
 
                 <label className="auth__field">
@@ -261,32 +336,19 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
 
           {/* ---------- 列表 / 목록 ---------- */}
           <div className="admin__list">
-            <h3 className="admin__h3">已有内容 / 기존 항목 <span>{list.length}</span></h3>
-            {list.length === 0 && <p className="admin__empty">还没有内容 / 항목이 없습니다</p>}
-            {list.map((row) => (
-              <div className="admin__row" key={row.id}>
-                {!isProjects && (
-                  <div className="admin__thumb">
-                    {row.image_url
-                      ? <img src={row.image_url} alt="" loading="lazy" />
-                      : <span>—</span>}
+            <h3 className="admin__h3">
+              {isProjects ? '项目分组 / 프로젝트' : '已有内容 / 기존 항목'} <span>{list.length}</span>
+            </h3>
+            {list.length === 0 && !stillGroups?.length && <p className="admin__empty">还没有内容 / 항목이 없습니다</p>}
+            {stillGroups
+              ? stillGroups.map((g) => (
+                  <div className="admin__group" key={g.key}>
+                    <p className="admin__grouphead">{g.title} <span>{g.rows.length}</span></p>
+                    {g.rows.length === 0 && <p className="admin__empty">此项目暂无静帧 / 이 프로젝트에 스틸 없음</p>}
+                    {g.rows.map(renderRow)}
                   </div>
-                )}
-                <div className="admin__rowmain">
-                  <strong>{row.title}</strong>
-                  <span>{row.title_cn} {row.meta && `· ${row.meta}`}</span>
-                  {row.video_url && <span className="admin__badge">VIDEO</span>}
-                </div>
-                <div className="admin__actions">
-                  <button onClick={() => edit(row)}>编辑</button>
-                  <button
-                    className="admin__del"
-                    onClick={() => remove(isProjects ? 'portfolio_projects' : 'portfolio_works', row.id, row.title)}
-                    disabled={busy === 'del'}
-                  >删除</button>
-                </div>
-              </div>
-            ))}
+                ))
+              : list.map(renderRow)}
           </div>
         </div>
         )}
