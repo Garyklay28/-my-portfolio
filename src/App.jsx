@@ -1,16 +1,28 @@
 import { useCallback, useEffect, useState } from 'react'
 import { PROFILE, TABS, FILMS, IMAGE_GROUPS } from './data/works.js'
+import { loadContent } from './lib/content.js'
 import FilmSection from './components/FilmSection.jsx'
 import ImageSection from './components/ImageSection.jsx'
 import Profile from './components/Profile.jsx'
 import WorkDetail from './components/WorkDetail.jsx'
 import AuthModal from './components/AuthModal.jsx'
+import AdminPanel from './components/AdminPanel.jsx'
 import { supabase, isAuthConfigured } from './lib/supabase.js'
 
 export default function App() {
   const [tab, setTab] = useState('profile')
   const [authOpen, setAuthOpen] = useState(false)
+  const [adminOpen, setAdminOpen] = useState(false)
   const [user, setUser] = useState(null)
+  // 内容：先用代码里的示例数据渲染，再尝试从 Supabase 覆盖
+  // 콘텐츠: 먼저 샘플 데이터로 렌더링 후 Supabase 에서 덮어쓰기 시도
+  const [content, setContent] = useState({ source: 'static', films: FILMS, groups: IMAGE_GROUPS })
+
+  const refreshContent = useCallback(() => {
+    loadContent().then(setContent)
+  }, [])
+
+  useEffect(() => { refreshContent() }, [refreshContent])
 
   // 监听登录状态。未配置 Supabase 时直接跳过，不影响站点其余部分。
   // 로그인 상태 감시. Supabase 미설정 시 건너뛰며 사이트 나머지에는 영향 없음.
@@ -70,6 +82,7 @@ export default function App() {
 
             {user ? (
               <span className="nav__auth">
+                <button className="nav__manage" onClick={() => setAdminOpen(true)}>Manage</button>
                 <span className="nav__user" title={user.email}>{user.email}</span>
                 <button className="nav__signout" onClick={signOut}>Sign Out</button>
               </span>
@@ -124,8 +137,8 @@ export default function App() {
 
         {/* ---------- TAB PANELS ---------- */}
         {tab === 'profile' && <Profile />}
-        {tab === 'film' && <FilmSection films={FILMS} onOpen={(i) => openDetail(FILMS, i)} />}
-        {tab === 'images' && <ImageSection groups={IMAGE_GROUPS} onOpen={openDetail} />}
+        {tab === 'film' && <FilmSection films={content.films} onOpen={(i) => openDetail(content.films, i)} />}
+        {tab === 'images' && <ImageSection groups={content.groups} onOpen={openDetail} />}
       </main>
 
       {/* ---------- CONTACT ---------- */}
@@ -158,6 +171,14 @@ export default function App() {
 
       {/* ---------- DETAIL ---------- */}
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
+
+      {adminOpen && user && (
+        <AdminPanel
+          onClose={() => setAdminOpen(false)}
+          onChanged={refreshContent}
+          contentSource={content.source}
+        />
+      )}
 
       {detail && (
         <WorkDetail

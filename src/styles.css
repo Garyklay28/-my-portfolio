@@ -864,3 +864,199 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
   .nav__user { display: none; }
   .auth__panel { box-shadow: 7px 7px 0 var(--key); }
 }
+
+/* ============================================================
+   ADMIN — 管理面板 / 관리 패널
+   ============================================================ */
+.nav__manage {
+  font-family: var(--label);
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  background: var(--key);
+  color: #fff;
+  border: 2px solid var(--key);
+  padding: 5px 13px 3px;
+  white-space: nowrap;
+  transition: background 0.2s, color 0.2s;
+}
+.nav__manage:hover { background: var(--ink); border-color: var(--ink); }
+
+.admin {
+  position: fixed;
+  inset: 0;
+  z-index: 700;
+  background: var(--paper);
+  overflow-y: auto;
+}
+.admin__bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--paper);
+  border-bottom: 2px solid var(--ink);
+}
+.admin__barinner {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding-block: 14px 12px;
+}
+.admin__title { font-size: clamp(24px, 3.4vw, 40px); margin: 4px 0 0; }
+.admin__body { padding-block: clamp(20px, 3vw, 34px) clamp(50px, 7vw, 90px); }
+
+.admin__banner {
+  border: 2px solid var(--ink);
+  background: var(--yellow);
+  padding: clamp(14px, 2vw, 20px);
+  margin-bottom: clamp(20px, 3vw, 30px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.admin__banner p { margin: 0; font-size: 13.5px; line-height: 1.65; flex: 1 1 340px; }
+.admin__seed {
+  font-family: var(--label);
+  font-size: 14px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 11px 18px 9px;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+.admin__seed:hover:not(:disabled) { background: var(--key); }
+.admin__seed:disabled { opacity: 0.5; cursor: default; }
+
+.admin__tabs { display: flex; gap: 0; border-bottom: 2px solid var(--ink); margin-bottom: 20px; flex-wrap: wrap; }
+.admin__tabs button {
+  font-family: var(--label);
+  font-size: 15px;
+  letter-spacing: 0.12em;
+  padding: 9px 18px 7px;
+  color: var(--ink-40);
+  border-bottom: 4px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.2s, border-color 0.2s;
+}
+.admin__tabs button[aria-selected='true'] { color: var(--ink); border-bottom-color: var(--key); }
+
+.admin__msg { margin-bottom: 16px; }
+
+.admin__cols { display: grid; grid-template-columns: minmax(0, 400px) minmax(0, 1fr); gap: clamp(22px, 3.5vw, 50px); align-items: start; }
+
+.admin__form { display: grid; gap: 14px; border: 2px solid var(--ink); padding: clamp(16px, 2.2vw, 24px); position: sticky; top: 110px; }
+.admin__h3 {
+  font-family: var(--label);
+  font-size: 15px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--key);
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.admin__h3 span { color: var(--ink-40); font-size: 13px; }
+.admin__cancel {
+  font-family: var(--body);
+  font-size: 11.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-60);
+  text-decoration: underline;
+}
+.admin__form textarea,
+.admin__form select {
+  font-family: var(--body);
+  font-size: 14.5px;
+  padding: 9px 11px;
+  border: 1px solid var(--ink-15);
+  background: var(--paper-2);
+  color: var(--ink);
+  resize: vertical;
+}
+.admin__form textarea:focus,
+.admin__form select:focus { outline: none; border-color: var(--key); background: var(--paper); }
+
+.admin__media { display: flex; gap: 8px; align-items: stretch; }
+.admin__media input { flex: 1; min-width: 0; }
+.admin__upload {
+  font-family: var(--label);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 0 13px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+.admin__upload:hover { background: var(--key); }
+.admin__preview { margin-top: 8px; max-height: 120px; width: auto; border: 1px solid var(--ink-15); }
+
+.admin__list { display: grid; gap: 10px; align-content: start; }
+.admin__empty { font-size: 13.5px; color: var(--ink-60); }
+.admin__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--ink-15);
+  padding: 9px 11px;
+  background: var(--paper);
+}
+.admin__thumb {
+  width: 58px;
+  height: 38px;
+  flex: none;
+  background: var(--paper-2);
+  border: 1px solid var(--ink-15);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--ink-40);
+  font-size: 12px;
+}
+.admin__thumb img { width: 100%; height: 100%; object-fit: cover; }
+.admin__rowmain { display: grid; gap: 2px; min-width: 0; }
+.admin__rowmain strong { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin__rowmain span { font-size: 12px; color: var(--ink-60); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin__badge {
+  font-family: var(--label);
+  font-size: 10px !important;
+  letter-spacing: 0.14em;
+  color: #fff !important;
+  background: var(--key);
+  padding: 1px 6px 0;
+  justify-self: start;
+}
+.admin__actions { display: flex; gap: 6px; }
+.admin__actions button {
+  font-family: var(--label);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  border: 1px solid var(--ink-15);
+  padding: 5px 10px 3px;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.admin__actions button:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.admin__del:hover { background: var(--blood) !important; border-color: var(--blood) !important; }
+
+@media (max-width: 900px) {
+  .admin__cols { grid-template-columns: 1fr; }
+  .admin__form { position: static; }
+}
+@media (max-width: 720px) {
+  .nav__manage { font-size: 11px; letter-spacing: 0.08em; padding: 4px 9px 2px; }
+  .admin__row { grid-template-columns: auto minmax(0, 1fr); }
+  .admin__actions { grid-column: 1 / -1; }
+}
