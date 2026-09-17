@@ -28,7 +28,7 @@ export default function ProfileEditor({ onSaved }) {
     if (!file) return
     setBusy('upload'); setErr('')
     try {
-      const url = await uploadMedia(file, 'profile')
+      const { url } = await uploadMedia(file, 'profile')
       apply(url)
       setMsg(`上传成功 / 업로드 성공: ${file.name}`)
     } catch (e2) { setErr(e2.message || String(e2)) }

@@ -184,19 +184,98 @@ export async function seedFromStatic() {
   return report
 }
 
-/** 上传文件到 media 桶，返回公开 URL / media 버킷에 업로드 후 공개 URL 반환 */
-export async function uploadMedia(file, folder = 'uploads') {
+// Supabase 免费版单个文件上限 50MB（超过会报 "The object exceeded the maximum allowed size"）
+// Supabase 무료 플랜 파일당 최대 50MB (초과 시 "The object exceeded the maximum allowed size")
+export const MAX_UPLOAD_MB = 50
+
+const mb = (bytes) => (bytes / 1048576).toFixed(1)
+
+/**
+ * 上传前在浏览器里压缩图片：长边缩到 2560px 以内，重新编码。
+ * 업로드 전 브라우저에서 이미지 압축: 긴 변 2560px 이하로 줄이고 재인코딩.
+ *
+ * - 本来就小（≤ 3MB 且尺寸不超）的图原样上传，不做无谓的有损压缩
+ * - PNG 可能有透明背景（比如桂冠），优先转 WebP 保留透明；浏览器不支持时退回 PNG
+ * - 压缩结果比原图还大时，用原图
+ *
+ * - 이미 작은 이미지(3MB 이하, 크기 초과 없음)는 그대로 업로드
+ * - PNG 는 투명 배경(월계관 등)이 있을 수 있어 WebP 로 투명도 유지, 미지원 브라우저는 PNG
+ * - 압축 결과가 원본보다 크면 원본 사용
+ */
+export async function compressImage(file, { maxEdge = 2560, quality = 0.86 } = {}) {
+  if (!file.type.startsWith('image/') || /svg|gif/.test(file.type)) return file
+
+  let bitmap
+  try {
+    bitmap = await createImageBitmap(file)
+  } catch {
+    return file // 浏览器解不了的格式（如部分 HEIC）原样交给服务器 / 디코딩 불가 형식은 원본 그대로
+  }
+
+  const longEdge = Math.max(bitmap.width, bitmap.height)
+  if (file.size <= 3 * 1048576 && longEdge <= maxEdge) {
+    bitmap.close?.()
+    return file
+  }
+
+  const scale = Math.min(1, maxEdge / longEdge)
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.round(bitmap.width * scale)
+  canvas.height = Math.round(bitmap.height * scale)
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+  bitmap.close?.()
+
+  const encode = (type) => new Promise((resolve) => canvas.toBlob(resolve, type, quality))
+  const keepAlpha = file.type === 'image/png' || file.type === 'image/webp'
+  let blob = await encode(keepAlpha ? 'image/webp' : 'image/jpeg')
+  if (keepAlpha && blob && blob.type !== 'image/webp') blob = await encode('image/png')
+  if (!blob || blob.size >= file.size) return file
+
+  const ext = { 'image/webp': 'webp', 'image/png': 'png', 'image/jpeg': 'jpg' }[blob.type] || 'jpg'
+  const name = file.name.replace(/\.[^.]+$/, '') + '.' + ext
+  return new File([blob], name, { type: blob.type })
+}
+
+/** 超限时给出看得懂的提示，而不是服务器的英文报错 / 제한 초과 시 서버 영문 오류 대신 이해하기 쉬운 안내 */
+export function checkUploadSize(file) {
+  if (file.size <= MAX_UPLOAD_MB * 1048576) return
+  const isVideo = file.type.startsWith('video/')
+  throw new Error(
+    `「${file.name}」有 ${mb(file.size)}MB，超过了单个文件 ${MAX_UPLOAD_MB}MB 的上限。` +
+      (isVideo ? '请先用压缩脚本把视频压小再上传。' : '请换一张小一点的图片。') +
+      ` / "${file.name}" 은(는) ${mb(file.size)}MB 로 파일당 ${MAX_UPLOAD_MB}MB 제한을 넘습니다. ` +
+      (isVideo ? '압축 스크립트로 영상을 줄인 뒤 업로드하세요.' : '더 작은 이미지를 사용하세요.'),
+  )
+}
+
+/** 上传文件到 media 桶，返回公开 URL（图片先压缩，再检查大小）
+ *  media 버킷 업로드 후 공개 URL 반환 (이미지는 먼저 압축 후 크기 확인) */
+export async function uploadMedia(input, folder = 'uploads') {
   if (!isAuthConfigured) throw new Error('Supabase 未配置 / Supabase 미설정')
+
+  const file = input.type.startsWith('image/') ? await compressImage(input) : input
+  checkUploadSize(file)
 
   const ext = file.name.split('.').pop()?.toLowerCase() || 'bin'
   const safe = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
 
   const { error } = await supabase.storage.from('media').upload(safe, file, {
     cacheControl: '31536000',
+    contentType: file.type || undefined,
     upsert: false,
   })
-  if (error) throw error
+  if (error) {
+    // 服务器端的上限可能比 50MB 更低（例如桶单独设了限制），给出同样看得懂的提示
+    // 서버 제한이 50MB 보다 낮을 수 있음 (버킷별 제한 등), 같은 방식으로 안내
+    if (/maximum allowed size/i.test(error.message)) {
+      throw new Error(
+        `「${file.name}」(${mb(file.size)}MB) 超过了存储空间允许的单个文件上限。/ ` +
+          `"${file.name}" (${mb(file.size)}MB) 이(가) 스토리지 파일당 제한을 넘습니다.`,
+      )
+    }
+    throw error
+  }
 
   const { data } = supabase.storage.from('media').getPublicUrl(safe)
-  return data.publicUrl
+  return { url: data.publicUrl, originalSize: input.size, uploadedSize: file.size }
 }

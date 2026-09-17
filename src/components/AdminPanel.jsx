@@ -69,9 +69,12 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
     setBusy(field)
     setErr('')
     try {
-      const url = await uploadMedia(file, field === 'video_url' ? 'videos' : 'images')
+      const { url, originalSize, uploadedSize } = await uploadMedia(file, field === 'video_url' ? 'videos' : 'images')
       setForm((f) => ({ ...f, [field]: url }))
-      setMsg(`上传成功 / 업로드 성공: ${file.name}`)
+      const shrunk = uploadedSize < originalSize
+        ? `（已自动压缩 ${(originalSize / 1048576).toFixed(1)}MB → ${(uploadedSize / 1048576).toFixed(1)}MB / 자동 압축됨）`
+        : ''
+      setMsg(`上传成功 / 업로드 성공: ${file.name} ${shrunk}`)
     } catch (e2) {
       setErr(e2.message || String(e2))
     } finally {
@@ -318,7 +321,7 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
                 />
                 {tab === 'film' && (
                   <MediaField
-                    label="视频 Video（可选 / 선택）" field="video_url" form={form} setForm={setForm}
+                    label="视频 Video（可选，单个 ≤ 50MB / 선택, 파일당 50MB 이하）" field="video_url" form={form} setForm={setForm}
                     busy={busy} onUpload={handleUpload} accept="video/*"
                   />
                 )}
