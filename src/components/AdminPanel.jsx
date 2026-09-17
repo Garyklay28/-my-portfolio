@@ -96,12 +96,13 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
     setErr(''); setMsg('')
     setVideoPrep({ file, probing: true })
     try {
-      const { probeVideo, browserCanCompress } = await import('../lib/videoCompress.js')
+      const { probeVideo, browserCanCompress, audioPlan } = await import('../lib/videoCompress.js')
       const [info, canCompress] = await Promise.all([
         probeVideo(file).catch(() => null),
         browserCanCompress(),
       ])
-      setVideoPrep((cur) => (cur?.file === file ? { file, info, canCompress } : cur))
+      const audio = info ? await audioPlan(info.audioCodec) : 'none'
+      setVideoPrep((cur) => (cur?.file === file ? { file, info, canCompress, audio } : cur))
     } catch (e2) {
       setVideoPrep((cur) => (cur?.file === file ? { file, info: null, canCompress: false } : cur))
       setErr(e2.message || String(e2))
@@ -136,7 +137,6 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
         })
         toUpload = r.file
         note = ` · ${r.width}×${r.height} H.264`
-        if (r.droppedAudio) note += ' ⚠️ 这个浏览器处理不了音频，已省略音轨 / 이 브라우저가 오디오를 처리하지 못해 오디오 트랙을 뺐습니다'
       }
 
       const { url, uploadedSize } = await uploadMedia(toUpload, field === 'video_url' ? 'videos' : 'images', {
@@ -563,12 +563,14 @@ function MediaField({ label, field, form, setForm, busy, onUpload, accept, child
 /** 选了视频之后：显示信息 + 建议，让你选压缩后上传或直接上传
  *  영상 선택 후: 정보와 권장 사항을 보여주고, 압축 후 업로드 또는 바로 업로드 선택 */
 function VideoPrep({ prep, disabled, onCompress, onDirect, onDismiss }) {
-  const { file, info, canCompress, probing } = prep
+  const { file, info, canCompress, probing, audio } = prep
+  const audioDrop = audio === 'drop'
   const sizeMB = (file.size / 1048576).toFixed(1)
   const over = file.size > MAX_UPLOAD_MB * 1048576
   const badCodec = Boolean(info?.videoCodec && info.videoCodec !== 'avc')
   const recommend = over || badCodec
-  const CODEC = { avc: 'H.264', hevc: 'HEVC (H.265)', vp9: 'VP9', av1: 'AV1' }
+  const CODEC = { avc: 'H.264', hevc: 'HEVC (H.265)', vp9: 'VP9', av1: 'AV1', aac: 'AAC', mp3: 'MP3', opus: 'Opus' }
+  const audioText = !info ? '' : info.audioCodec ? ` · 音频 ${CODEC[info.audioCodec] || info.audioCodec}` : ' · 无音频 / 오디오 없음'
 
   return (
     <div className="vp">
@@ -576,7 +578,7 @@ function VideoPrep({ prep, disabled, onCompress, onDirect, onDismiss }) {
         <div className="vp__file">{file.name}</div>
         <div className="vp__meta">
           {sizeMB}MB
-          {info && ` · ${info.width}×${info.height} · ${CODEC[info.videoCodec] || info.videoCodec || '?'} · ${Math.round(info.duration)}s`}
+          {info && ` · ${info.width}×${info.height} · ${CODEC[info.videoCodec] || info.videoCodec || '?'}${audioText} · ${Math.round(info.duration)}s`}
           {probing && ' · 读取中… / 읽는 중…'}
         </div>
       </div>
@@ -601,6 +603,12 @@ function VideoPrep({ prep, disabled, onCompress, onDirect, onDismiss }) {
               이미 H.264 이고 {MAX_UPLOAD_MB}MB 미만이라 바로 올려도 됩니다.
             </p>
           )}
+          {canCompress && audioDrop && (
+            <p className="vp__note vp__note--warn">
+              这个浏览器处理不了这段视频的音频（{CODEC[info.audioCodec] || info.audioCodec}），在这里压缩会没有声音，所以网页压缩已禁用。请用 Chrome 打开管理页面，或在电脑上运行 scripts/compress-video.sh。<br />
+              이 브라우저는 이 영상의 오디오를 처리하지 못해 여기서 압축하면 소리가 사라지므로 웹 압축을 비활성화했습니다. Chrome 으로 관리 페이지를 열거나 scripts/compress-video.sh 를 실행하세요.
+            </p>
+          )}
           {!canCompress && (
             <p className="vp__note vp__note--warn">
               这个浏览器不支持网页内压缩。请用 Chrome 打开管理页面，或在电脑上运行 scripts/compress-video.sh。<br />
@@ -609,7 +617,7 @@ function VideoPrep({ prep, disabled, onCompress, onDirect, onDismiss }) {
           )}
 
           <div className="vp__actions">
-            <button type="button" className={recommend ? 'vp__primary' : ''} onClick={onCompress} disabled={disabled || !canCompress}>
+            <button type="button" className={recommend && !audioDrop ? 'vp__primary' : ''} onClick={onCompress} disabled={disabled || !canCompress || audioDrop}>
               压缩后上传{recommend ? '（推荐）' : ''} / 압축 후 업로드
             </button>
             <button type="button" className={!recommend ? 'vp__primary' : ''} onClick={onDirect} disabled={disabled || over}>

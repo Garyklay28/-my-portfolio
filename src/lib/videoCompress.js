@@ -8,6 +8,7 @@ import {
   Mp4OutputFormat,
   Output,
   Quality,
+  canEncodeAudio,
   canEncodeVideo,
 } from 'mediabunny'
 
@@ -53,6 +54,24 @@ export async function browserCanCompress() {
 }
 
 /**
+ * 这段视频的声音压缩后会怎样 / 이 영상의 오디오가 압축 후 어떻게 되는지
+ * - 'none'   没有音轨 / 오디오 트랙 없음
+ * - 'copy'   已经是 AAC，原样保留，不需要重新编码（任何浏览器都行）
+ *            이미 AAC 라 재인코딩 없이 그대로 유지 (모든 브라우저 가능)
+ * - 'encode' 需要转成 AAC，这个浏览器支持 / AAC 로 변환 필요, 이 브라우저가 지원
+ * - 'drop'   需要转成 AAC，但这个浏览器不支持 → 压缩后会没有声音
+ *            AAC 변환이 필요한데 이 브라우저가 미지원 → 압축하면 소리가 사라짐
+ */
+export async function audioPlan(audioCodec) {
+  if (!audioCodec) return 'none'
+  if (audioCodec === 'aac') return 'copy'
+  try {
+    if (typeof AudioEncoder !== 'undefined' && (await canEncodeAudio('aac'))) return 'encode'
+  } catch { /* 视为不支持 / 미지원으로 간주 */ }
+  return 'drop'
+}
+
+/**
  * 压缩视频。
  * - 长边限制 1920px（1080p），宽高取偶数
  * - 按时长算码率，让结果在 targetMB 以内（码率限制在 0.8～8 Mbps 之间）
@@ -65,7 +84,7 @@ export async function browserCanCompress() {
  * - H.264 + AAC, fastStart (웹에서 전체 다운로드 전에 재생 가능)
  * - 브라우저가 오디오를 처리하지 못하면 오디오를 빼고 결과에 표시
  */
-export async function compressVideo(file, { targetMB = 40, maxEdge = 1920, onProgress, signal } = {}) {
+export async function compressVideo(file, { targetMB = 40, maxEdge = 1920, allowDropAudio = false, onProgress, signal } = {}) {
   const input = new Input({ formats: ALL_FORMATS, source: new BlobSource(file) })
   try {
     const video = await input.getPrimaryVideoTrack()
@@ -78,7 +97,7 @@ export async function compressVideo(file, { targetMB = 40, maxEdge = 1920, onPro
     const width = even(w * scale)
     const height = even(h * scale)
 
-    const audioBps = 128_000
+    const audioBps = 128_000 // 只用于估算视频码率 / 영상 비트레이트 계산용
     const videoBps = Math.min(8_000_000, Math.max(800_000, Math.floor((targetMB * 8 * 1048576 * 0.92) / duration - audioBps)))
 
     const output = new Output({
@@ -91,7 +110,11 @@ export async function compressVideo(file, { targetMB = 40, maxEdge = 1920, onPro
       output,
       tracks: 'primary',
       video: { codec: 'avc', width, height, fit: 'fill', quality: new Quality({ bitrate: videoBps }), forceTranscode: true },
-      audio: { codec: 'aac', quality: new Quality({ bitrate: audioBps }) },
+      // 不给音频指定码率：源文件已经是 AAC 时会原样复制，不经过编码器。
+      // 之前指定了码率，会强制重新编码，在不支持音频编码的浏览器（如 Safari 18）里音轨被丢掉。
+      // 오디오 비트레이트를 지정하지 않음: 원본이 AAC 면 인코더를 거치지 않고 그대로 복사.
+      // 이전에는 비트레이트 지정으로 재인코딩이 강제되어, 오디오 인코딩 미지원 브라우저(Safari 18 등)에서 오디오가 빠졌음.
+      audio: { codec: 'aac' },
       showWarnings: false,
     })
 
@@ -99,7 +122,13 @@ export async function compressVideo(file, { targetMB = 40, maxEdge = 1920, onPro
       const reasons = conversion.discardedTracks.map((d) => d.reason).join(', ')
       throw new Error(`这个浏览器无法转换这个视频（${reasons}）。请用 Chrome，或用电脑上的压缩脚本。/ 이 브라우저에서 변환할 수 없습니다 (${reasons}). Chrome 을 쓰거나 컴퓨터의 압축 스크립트를 사용하세요.`)
     }
-    const droppedAudio = conversion.discardedTracks.some((d) => d.track.type === 'audio')
+    const hadAudio = Boolean(await input.getPrimaryAudioTrack())
+    const droppedAudio = hadAudio && conversion.discardedTracks.some((d) => d.track.type === 'audio')
+    // 默认绝不悄悄产出没有声音的视频 / 기본적으로 소리 없는 영상을 조용히 만들지 않음
+    if (droppedAudio && !allowDropAudio) {
+      const reasons = conversion.discardedTracks.filter((d) => d.track.type === 'audio').map((d) => d.reason).join(', ')
+      throw new Error(`这个浏览器无法处理这段视频的音频（${reasons}），压缩后会没有声音，所以已停止。请用 Chrome 打开管理页面，或用电脑上的压缩脚本。/ 이 브라우저가 이 영상의 오디오를 처리할 수 없어(${reasons}) 압축하면 소리가 사라지므로 중단했습니다. Chrome 으로 관리 페이지를 열거나 컴퓨터의 압축 스크립트를 사용하세요.`)
+    }
 
     // 进度回调非常频繁（几秒内上千次），只在百分比变化时通知，避免界面反复重绘
     // 진행률 콜백이 매우 잦아(몇 초에 수천 번), 퍼센트가 바뀔 때만 알려 화면 재렌더링을 줄임
