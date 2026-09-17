@@ -248,26 +248,92 @@ export function checkUploadSize(file) {
   )
 }
 
-/** 上传文件到 media 桶，返回公开 URL（图片先压缩，再检查大小）
- *  media 버킷 업로드 후 공개 URL 반환 (이미지는 먼저 압축 후 크기 확인) */
-export async function uploadMedia(input, folder = 'uploads') {
+/**
+ * 用 XMLHttpRequest 上传，这样能拿到上传进度（fetch 拿不到）。
+ * 진행률을 받기 위해 XMLHttpRequest 로 업로드 (fetch 로는 진행률을 알 수 없음).
+ */
+export function xhrUpload({ url, headers = {}, body, onProgress, signal }) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', url)
+    for (const [k, v] of Object.entries(headers)) xhr.setRequestHeader(k, v)
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress?.(e.loaded / e.total)
+    }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress?.(1)
+        resolve()
+        return
+      }
+      let message = xhr.responseText
+      try {
+        const j = JSON.parse(xhr.responseText)
+        message = j.message || j.error || message
+      } catch { /* 不是 JSON 就用原文 / JSON 이 아니면 원문 사용 */ }
+      const err = new Error(message || `HTTP ${xhr.status}`)
+      err.status = xhr.status
+      reject(err)
+    }
+    xhr.onerror = () => reject(new Error('网络错误，上传中断 / 네트워크 오류로 업로드가 중단되었습니다'))
+    xhr.onabort = () => reject(new DOMException('已取消 / 취소됨', 'AbortError'))
+
+    if (signal) {
+      if (signal.aborted) return xhr.abort()
+      signal.addEventListener('abort', () => xhr.abort(), { once: true })
+    }
+    xhr.send(body)
+  })
+}
+
+/** 确认仍处于登录状态，返回 session；否则报错 / 로그인 상태 확인 후 session 반환, 아니면 오류 */
+export async function requireSession() {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('登录已过期，请重新登录后再上传 / 로그인이 만료되었습니다. 다시 로그인한 뒤 업로드하세요')
+  return session
+}
+
+/**
+ * 上传文件到 media 桶，返回公开 URL。图片先压缩，再检查大小。
+ * media 버킷에 업로드 후 공개 URL 반환. 이미지는 먼저 압축 후 크기 확인.
+ *
+ * options.onStage(stage)   'compress' | 'upload'
+ * options.onProgress(0~1)  上传进度 / 업로드 진행률
+ * options.signal           AbortSignal，用来取消 / 취소용
+ */
+export async function uploadMedia(input, folder = 'uploads', { onStage, onProgress, signal } = {}) {
   if (!isAuthConfigured) throw new Error('Supabase 未配置 / Supabase 미설정')
 
-  const file = input.type.startsWith('image/') ? await compressImage(input) : input
+  const isImage = input.type.startsWith('image/')
+  if (isImage) onStage?.('compress')
+  const file = isImage ? await compressImage(input) : input
   checkUploadSize(file)
 
-  const ext = file.name.split('.').pop()?.toLowerCase() || 'bin'
-  const safe = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+  const session = await requireSession()
 
-  const { error } = await supabase.storage.from('media').upload(safe, file, {
-    cacheControl: '31536000',
-    contentType: file.type || undefined,
-    upsert: false,
-  })
-  if (error) {
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'bin'
+  const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+
+  onStage?.('upload')
+  try {
+    await xhrUpload({
+      url: `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/media/${path}`,
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        'x-upsert': 'false',
+        'cache-control': 'max-age=31536000',
+        ...(file.type ? { 'Content-Type': file.type } : {}),
+      },
+      body: file,
+      onProgress,
+      signal,
+    })
+  } catch (error) {
     // 服务器端的上限可能比 50MB 更低（例如桶单独设了限制），给出同样看得懂的提示
     // 서버 제한이 50MB 보다 낮을 수 있음 (버킷별 제한 등), 같은 방식으로 안내
-    if (/maximum allowed size/i.test(error.message)) {
+    if (error.status === 413 || /maximum allowed size/i.test(error.message)) {
       throw new Error(
         `「${file.name}」(${mb(file.size)}MB) 超过了存储空间允许的单个文件上限。/ ` +
           `"${file.name}" (${mb(file.size)}MB) 이(가) 스토리지 파일당 제한을 넘습니다.`,
@@ -276,6 +342,6 @@ export async function uploadMedia(input, folder = 'uploads') {
     throw error
   }
 
-  const { data } = supabase.storage.from('media').getPublicUrl(safe)
+  const { data } = supabase.storage.from('media').getPublicUrl(path)
   return { url: data.publicUrl, originalSize: input.size, uploadedSize: file.size }
 }

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
-import { uploadMedia, seedFromStatic } from '../lib/content.js'
+import { uploadMedia, seedFromStatic, requireSession, MAX_UPLOAD_MB } from '../lib/content.js'
+import UploadProgress from './UploadProgress.jsx'
 import ProfileEditor from './ProfileEditor.jsx'
 import SortableList from './SortableList.jsx'
 
@@ -30,6 +31,21 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
+  // 上传进度 { field, label, value(0~1 或 null), detail } / 업로드 진행률
+  const [progress, setProgress] = useState(null)
+  // 选了视频、还没决定怎么上传时的检查结果 / 영상 선택 후 업로드 방식 결정 전 확인 결과
+  const [videoPrep, setVideoPrep] = useState(null)
+  const abortRef = useRef(null)
+
+  // 关闭面板时中止进行中的压缩/上传；上传中离开页面前提醒
+  // 패널을 닫으면 진행 중인 압축/업로드 중단, 업로드 중 페이지 이탈 시 경고
+  useEffect(() => () => abortRef.current?.abort(), [])
+  useEffect(() => {
+    if (!progress) return
+    const warn = (e) => { e.preventDefault(); e.returnValue = '' }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [progress])
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
@@ -64,25 +80,90 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
     setErr('')
   }
 
+  const mb = (b) => (b / 1048576).toFixed(1)
+
   async function handleUpload(e, field) {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
-    setBusy(field)
-    setErr('')
+    if (field === 'video_url') return pickVideo(file)
+    return runUpload(field, file)
+  }
+
+  // 选了视频：先读出大小、分辨率、编码，再让你决定压缩还是直接传
+  // 영상 선택: 크기·해상도·코덱을 먼저 읽고, 압축할지 바로 올릴지 결정하게 함
+  async function pickVideo(file) {
+    setErr(''); setMsg('')
+    setVideoPrep({ file, probing: true })
     try {
-      const { url, originalSize, uploadedSize } = await uploadMedia(file, field === 'video_url' ? 'videos' : 'images')
-      setForm((f) => ({ ...f, [field]: url }))
-      const shrunk = uploadedSize < originalSize
-        ? `（已自动压缩 ${(originalSize / 1048576).toFixed(1)}MB → ${(uploadedSize / 1048576).toFixed(1)}MB / 자동 압축됨）`
-        : ''
-      setMsg(`上传成功 / 업로드 성공: ${file.name} ${shrunk}`)
+      const { probeVideo, browserCanCompress } = await import('../lib/videoCompress.js')
+      const [info, canCompress] = await Promise.all([
+        probeVideo(file).catch(() => null),
+        browserCanCompress(),
+      ])
+      setVideoPrep((cur) => (cur?.file === file ? { file, info, canCompress } : cur))
     } catch (e2) {
+      setVideoPrep((cur) => (cur?.file === file ? { file, info: null, canCompress: false } : cur))
       setErr(e2.message || String(e2))
-    } finally {
-      setBusy('')
-      e.target.value = ''
     }
   }
+
+  async function runUpload(field, file, { compress = false } = {}) {
+    const controller = new AbortController()
+    abortRef.current = controller
+    setErr(''); setMsg(''); setBusy(field)
+    try {
+      // 先确认登录状态，免得压完才发现登录过期 / 압축 후에야 로그인 만료를 알게 되지 않도록 먼저 확인
+      await requireSession()
+
+      let toUpload = file
+      let note = ''
+
+      if (compress) {
+        const { compressVideo } = await import('../lib/videoCompress.js')
+        setProgress({ field, label: '压缩中 / 압축 중', value: 0, detail: `${file.name} · ${mb(file.size)}MB` })
+        const started = Date.now()
+        const r = await compressVideo(file, {
+          signal: controller.signal,
+          onProgress: (v) => {
+            const elapsed = (Date.now() - started) / 1000
+            const left = v > 0.03 ? Math.round((elapsed / v) * (1 - v)) : null
+            setProgress({
+              field, label: '压缩中 / 압축 중', value: v,
+              detail: left == null ? '估算剩余时间… / 남은 시간 계산 중…' : `约剩 ${left} 秒 / 약 ${left}초 남음`,
+            })
+          },
+        })
+        toUpload = r.file
+        note = ` · ${r.width}×${r.height} H.264`
+        if (r.droppedAudio) note += ' ⚠️ 这个浏览器处理不了音频，已省略音轨 / 이 브라우저가 오디오를 처리하지 못해 오디오 트랙을 뺐습니다'
+      }
+
+      const { url, uploadedSize } = await uploadMedia(toUpload, field === 'video_url' ? 'videos' : 'images', {
+        signal: controller.signal,
+        onStage: (stage) =>
+          setProgress(stage === 'compress'
+            ? { field, label: '处理图片 / 이미지 처리 중', value: null, detail: file.name }
+            : { field, label: '上传中 / 업로드 중', value: 0, detail: `${mb(toUpload.size)}MB` }),
+        onProgress: (v) =>
+          setProgress({ field, label: '上传中 / 업로드 중', value: v, detail: `${mb(toUpload.size * v)} / ${mb(toUpload.size)}MB` }),
+      })
+
+      setForm((f) => ({ ...f, [field]: url }))
+      if (field === 'video_url') setVideoPrep(null)
+      const shrunk = uploadedSize < file.size ? `（${mb(file.size)}MB → ${mb(uploadedSize)}MB）` : ''
+      setMsg(`上传成功，记得点下方保存 / 업로드 성공, 아래에서 저장하세요: ${file.name} ${shrunk}${note}`)
+    } catch (e2) {
+      if (e2.name === 'AbortError') setMsg('已取消 / 취소했습니다')
+      else setErr(e2.message || String(e2))
+    } finally {
+      abortRef.current = null
+      setBusy('')
+      setProgress(null)
+    }
+  }
+
+  const cancelUpload = () => abortRef.current?.abort()
 
   // 排序由拖动决定：新增的条目放到当前分组末尾
   // 순서는 드래그로 결정: 새 항목은 해당 그룹의 맨 뒤에 추가
@@ -372,19 +453,32 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
                 <MediaField
                   label="图片 Image" field="image_url" form={form} setForm={setForm}
                   busy={busy} onUpload={handleUpload} accept="image/*"
-                />
+                >
+                  {progress?.field === 'image_url' && <UploadProgress {...progress} onCancel={cancelUpload} />}
+                </MediaField>
                 {tab === 'film' && (
                   <MediaField
-                    label="视频 Video（可选，单个 ≤ 50MB / 선택, 파일당 50MB 이하）" field="video_url" form={form} setForm={setForm}
+                    label="视频 Video（可选，可在网页里压缩 / 선택, 웹에서 압축 가능）" field="video_url" form={form} setForm={setForm}
                     busy={busy} onUpload={handleUpload} accept="video/*"
-                  />
+                  >
+                    {videoPrep && !progress && (
+                      <VideoPrep
+                        prep={videoPrep}
+                        disabled={Boolean(busy)}
+                        onCompress={() => runUpload('video_url', videoPrep.file, { compress: true })}
+                        onDirect={() => runUpload('video_url', videoPrep.file)}
+                        onDismiss={() => setVideoPrep(null)}
+                      />
+                    )}
+                    {progress?.field === 'video_url' && <UploadProgress {...progress} onCancel={cancelUpload} />}
+                  </MediaField>
                 )}
 
                 <Field label="比例 Ratio（如 16 / 9、2 / 3）" value={form.ratio} onChange={(v) => setForm({ ...form, ratio: v })} />
               </>
             )}
 
-            <button className="auth__submit" type="submit" disabled={busy === 'save'}>
+            <button className="auth__submit" type="submit" disabled={busy === 'save' || Boolean(progress)}>
               {busy === 'save' ? '保存中… / 저장 중…' : editingId ? '保存修改 / 수정 저장' : '添加 / 추가'}
             </button>
           </form>
@@ -440,25 +534,93 @@ function Field({ label, value, onChange, type = 'text', required }) {
   )
 }
 
-function MediaField({ label, field, form, setForm, busy, onUpload, accept }) {
+function MediaField({ label, field, form, setForm, busy, onUpload, accept, children }) {
   return (
-    <label className="auth__field">
-      <span>{label}</span>
-      <div className="admin__media">
-        <input
-          type="text"
-          value={form[field] ?? ''}
-          onChange={(e) => setForm({ ...form, [field]: e.target.value })}
-          placeholder="/images/... 或上传 / 또는 업로드"
-        />
-        <label className="admin__upload">
-          {busy === field ? '上传中…' : '上传 / 업로드'}
-          <input type="file" accept={accept} onChange={(e) => onUpload(e, field)} hidden />
-        </label>
+    <>
+      <label className="auth__field">
+        <span>{label}</span>
+        <div className="admin__media">
+          <input
+            type="text"
+            value={form[field] ?? ''}
+            onChange={(e) => setForm({ ...form, [field]: e.target.value })}
+            placeholder="/images/... 或上传 / 또는 업로드"
+          />
+          <label className={`admin__upload${busy ? ' is-disabled' : ''}`}>
+            {busy === field ? '处理中…' : '上传 / 업로드'}
+            <input type="file" accept={accept} onChange={(e) => onUpload(e, field)} disabled={Boolean(busy)} hidden />
+          </label>
+        </div>
+        {form[field] && accept.startsWith('image') && (
+          <img className="admin__preview" src={form[field]} alt="" />
+        )}
+      </label>
+      {children}
+    </>
+  )
+}
+
+/** 选了视频之后：显示信息 + 建议，让你选压缩后上传或直接上传
+ *  영상 선택 후: 정보와 권장 사항을 보여주고, 압축 후 업로드 또는 바로 업로드 선택 */
+function VideoPrep({ prep, disabled, onCompress, onDirect, onDismiss }) {
+  const { file, info, canCompress, probing } = prep
+  const sizeMB = (file.size / 1048576).toFixed(1)
+  const over = file.size > MAX_UPLOAD_MB * 1048576
+  const badCodec = Boolean(info?.videoCodec && info.videoCodec !== 'avc')
+  const recommend = over || badCodec
+  const CODEC = { avc: 'H.264', hevc: 'HEVC (H.265)', vp9: 'VP9', av1: 'AV1' }
+
+  return (
+    <div className="vp">
+      <div>
+        <div className="vp__file">{file.name}</div>
+        <div className="vp__meta">
+          {sizeMB}MB
+          {info && ` · ${info.width}×${info.height} · ${CODEC[info.videoCodec] || info.videoCodec || '?'} · ${Math.round(info.duration)}s`}
+          {probing && ' · 读取中… / 읽는 중…'}
+        </div>
       </div>
-      {form[field] && accept.startsWith('image') && (
-        <img className="admin__preview" src={form[field]} alt="" />
+
+      {!probing && (
+        <>
+          {over && (
+            <p className="vp__note vp__note--warn">
+              超过 {MAX_UPLOAD_MB}MB 上限，必须压缩后才能上传。<br />
+              {MAX_UPLOAD_MB}MB 제한을 넘어 압축해야 업로드할 수 있습니다.
+            </p>
+          )}
+          {badCodec && (
+            <p className="vp__note vp__note--warn">
+              {CODEC[info.videoCodec] || info.videoCodec} 编码在部分浏览器（如 Chrome、Firefox）里播不了，建议压缩成 H.264。<br />
+              이 코덱은 일부 브라우저(Chrome·Firefox 등)에서 재생되지 않아 H.264 압축을 권장합니다.
+            </p>
+          )}
+          {!recommend && info && (
+            <p className="vp__note vp__note--ok">
+              已经是 H.264 且小于 {MAX_UPLOAD_MB}MB，可以直接上传。<br />
+              이미 H.264 이고 {MAX_UPLOAD_MB}MB 미만이라 바로 올려도 됩니다.
+            </p>
+          )}
+          {!canCompress && (
+            <p className="vp__note vp__note--warn">
+              这个浏览器不支持网页内压缩。请用 Chrome 打开管理页面，或在电脑上运行 scripts/compress-video.sh。<br />
+              이 브라우저는 웹 압축을 지원하지 않습니다. Chrome 으로 관리 페이지를 열거나 scripts/compress-video.sh 를 실행하세요.
+            </p>
+          )}
+
+          <div className="vp__actions">
+            <button type="button" className={recommend ? 'vp__primary' : ''} onClick={onCompress} disabled={disabled || !canCompress}>
+              压缩后上传{recommend ? '（推荐）' : ''} / 압축 후 업로드
+            </button>
+            <button type="button" className={!recommend ? 'vp__primary' : ''} onClick={onDirect} disabled={disabled || over}>
+              直接上传原文件 / 원본 그대로 업로드
+            </button>
+            <button type="button" className="vp__ghost" onClick={onDismiss} disabled={disabled}>
+              取消 / 취소
+            </button>
+          </div>
+        </>
       )}
-    </label>
+    </div>
   )
 }

@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { loadProfile, saveProfile, uploadMedia } from '../lib/content.js'
+import UploadProgress from './UploadProgress.jsx'
 
 /** 各列表的字段定义 / 각 목록의 필드 정의 */
 const LISTS = [
@@ -17,23 +18,44 @@ export default function ProfileEditor({ onSaved }) {
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
 
+  // { key: 'portrait' | 'laurel', label, value, detail } / 업로드 진행률
+  const [progress, setProgress] = useState(null)
+  const abortRef = useRef(null)
+
   useEffect(() => { loadProfile().then(setP) }, [])
+  useEffect(() => () => abortRef.current?.abort(), [])
 
   if (!p) return <p className="admin__empty">读取中… / 불러오는 중…</p>
 
   const set = (k, v) => setP({ ...p, [k]: v })
 
-  async function upload(e, apply) {
+  async function upload(e, key, apply) {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
-    setBusy('upload'); setErr('')
+    const controller = new AbortController()
+    abortRef.current = controller
+    setBusy('upload'); setErr(''); setMsg('')
+    const mb = (b) => (b / 1048576).toFixed(1)
     try {
-      const { url } = await uploadMedia(file, 'profile')
+      const { url } = await uploadMedia(file, 'profile', {
+        signal: controller.signal,
+        onStage: (stage) => setProgress(stage === 'compress'
+          ? { key, label: '处理图片 / 이미지 처리 중', value: null, detail: file.name }
+          : { key, label: '上传中 / 업로드 중', value: 0, detail: file.name }),
+        onProgress: (v) => setProgress({ key, label: '上传中 / 업로드 중', value: v, detail: `${mb(file.size * v)} / ${mb(file.size)}MB` }),
+      })
       apply(url)
-      setMsg(`上传成功 / 업로드 성공: ${file.name}`)
-    } catch (e2) { setErr(e2.message || String(e2)) }
-    finally { setBusy(''); e.target.value = '' }
+      setMsg(`上传成功，记得点最下方保存 / 업로드 성공, 맨 아래에서 저장하세요: ${file.name}`)
+    } catch (e2) {
+      if (e2.name === 'AbortError') setMsg('已取消 / 취소했습니다')
+      else setErr(e2.message || String(e2))
+    } finally {
+      abortRef.current = null
+      setBusy(''); setProgress(null)
+    }
   }
+  const cancelUpload = () => abortRef.current?.abort()
 
   async function save(e) {
     e.preventDefault()
@@ -73,10 +95,12 @@ export default function ProfileEditor({ onSaved }) {
         <div className="admin__media">
           <input type="text" value={p.portrait ?? ''} onChange={(e) => set('portrait', e.target.value)} />
           <label className="admin__upload">
-            {busy === 'upload' ? '上传中…' : '上传 / 업로드'}
-            <input type="file" accept="image/*" hidden onChange={(e) => upload(e, (url) => set('portrait', url))} />
+            {busy === 'upload' ? '处理中…' : '上传 / 업로드'}
+            <input type="file" accept="image/*" hidden disabled={Boolean(busy)}
+                   onChange={(e) => upload(e, 'portrait', (url) => set('portrait', url))} />
           </label>
         </div>
+        {progress?.key === 'portrait' && <UploadProgress {...progress} onCancel={cancelUpload} />}
         {p.portrait && <img className="admin__preview" src={p.portrait} alt="" />}
       </section>
 
@@ -93,10 +117,11 @@ export default function ProfileEditor({ onSaved }) {
           ))}
         </div>
         <label className="admin__upload pe__addlaurel">
-          {busy === 'upload' ? '上传中…' : '+ 添加桂冠 / 월계관 추가'}
-          <input type="file" accept="image/*" hidden
-                 onChange={(e) => upload(e, (url) => set('laurels', [...(p.laurels ?? []), url]))} />
+          {busy === 'upload' ? '处理中…' : '+ 添加桂冠 / 월계관 추가'}
+          <input type="file" accept="image/*" hidden disabled={Boolean(busy)}
+                 onChange={(e) => upload(e, 'laurel', (url) => setP((cur) => ({ ...cur, laurels: [...(cur.laurels ?? []), url] })))} />
         </label>
+        {progress?.key === 'laurel' && <UploadProgress {...progress} onCancel={cancelUpload} />}
       </section>
 
       {LISTS.map(({ key, label, fields }) => (
