@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { uploadMedia, seedFromStatic } from '../lib/content.js'
 import ProfileEditor from './ProfileEditor.jsx'
+import SortableList from './SortableList.jsx'
 
 const EMPTY = {
   kind: 'film',
@@ -83,6 +84,19 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
     }
   }
 
+  // 排序由拖动决定：新增的条目放到当前分组末尾
+  // 순서는 드래그로 결정: 새 항목은 해당 그룹의 맨 뒤에 추가
+  const nextOrder = (rows) => rows.reduce((m, r) => Math.max(m, r.sort_order ?? 0), -1) + 1
+
+  function sortOrderForSave() {
+    if (tab === 'projects') return editingId ? form.sort_order : nextOrder(projects)
+    if (tab === 'film') return editingId ? form.sort_order : nextOrder(works.filter((w) => w.kind === 'film'))
+    const pid = form.project_id || null
+    const original = works.find((w) => w.id === editingId)
+    if (original && (original.project_id || null) === pid) return form.sort_order
+    return nextOrder(works.filter((w) => w.kind === 'image' && (w.project_id || null) === pid && w.id !== editingId))
+  }
+
   async function save(e) {
     e.preventDefault()
     setBusy('save'); setErr(''); setMsg('')
@@ -90,7 +104,7 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
       if (tab === 'projects') {
         const payload = {
           title: form.title, title_cn: form.title_cn,
-          meta: form.meta, role: form.role, sort_order: Number(form.sort_order) || 0,
+          meta: form.meta, role: form.role, sort_order: sortOrderForSave(),
         }
         const res = editingId
           ? await supabase.from('portfolio_projects').update(payload).eq('id', editingId)
@@ -105,7 +119,7 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
           image_url: form.image_url || null,
           video_url: form.video_url || null,
           ratio: form.ratio || '16 / 9',
-          sort_order: Number(form.sort_order) || 0,
+          sort_order: sortOrderForSave(),
         }
         const res = editingId
           ? await supabase.from('portfolio_works').update(payload).eq('id', editingId)
@@ -118,6 +132,45 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
       onChanged?.()
     } catch (e2) {
       setErr(e2.message || String(e2))
+    } finally {
+      setBusy('')
+    }
+  }
+
+  async function reorder(table, newRows) {
+    const changed = newRows
+      .map((r, i) => ({ id: r.id, sort_order: i, prev: r.sort_order }))
+      .filter((c) => c.prev !== c.sort_order)
+    if (changed.length === 0) return
+
+    // 乐观更新：界面立刻按新顺序显示 / 낙관적 업데이트: 화면에 새 순서 즉시 반영
+    const order = new Map(newRows.map((r, i) => [r.id, i]))
+    const apply = (rows) =>
+      rows
+        .map((r) => (order.has(r.id) ? { ...r, sort_order: order.get(r.id) } : r))
+        .sort((a, b) => a.sort_order - b.sort_order)
+    if (table === 'portfolio_projects') setProjects(apply)
+    else setWorks(apply)
+
+    setBusy('sort'); setErr(''); setMsg('')
+    try {
+      const results = await Promise.all(
+        changed.map((c) => supabase.from(table).update({ sort_order: c.sort_order }).eq('id', c.id).select('id')),
+      )
+      const failed = results.find((r) => r.error)
+      if (failed) throw failed.error
+      // RLS 拒绝时不会报错，只是更新了 0 行，所以要单独检查
+      // RLS 거부 시 오류 없이 0행만 수정되므로 별도로 확인
+      if (results.some((r) => !r.data || r.data.length === 0)) {
+        throw new Error('没有写入权限，可能是登录已过期，请重新登录 / 쓰기 권한 없음, 로그인이 만료되었을 수 있으니 다시 로그인하세요')
+      }
+      setMsg('顺序已保存 / 순서 저장 완료')
+      onChanged?.()
+    } catch (e2) {
+      // 先恢复再显示错误：refresh() 开头会清空错误信息
+      // 먼저 복구한 뒤 오류 표시: refresh() 가 시작할 때 오류 메시지를 비우기 때문
+      await refresh()
+      setErr('顺序没有保存，已恢复为数据库里的顺序 / 순서가 저장되지 않아 DB 의 순서로 복구했습니다: ' + (e2.message || String(e2)))
     } finally {
       setBusy('')
     }
@@ -183,8 +236,9 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
 
   const goProjects = () => { setTab('projects'); resetForm('projects') }
 
-  const renderRow = (row) => (
+  const renderRow = (row, handle) => (
     <div className="admin__row" key={row.id}>
+      {handle}
       {!isProjects && (
         <div className="admin__thumb">
           {row.image_url ? <img src={row.image_url} alt="" loading="lazy" /> : <span>—</span>}
@@ -330,8 +384,6 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
               </>
             )}
 
-            <Field label="排序 Sort（数字越小越靠前）" value={String(form.sort_order)} onChange={(v) => setForm({ ...form, sort_order: v })} type="number" />
-
             <button className="auth__submit" type="submit" disabled={busy === 'save'}>
               {busy === 'save' ? '保存中… / 저장 중…' : editingId ? '保存修改 / 수정 저장' : '添加 / 추가'}
             </button>
@@ -343,15 +395,34 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
               {isProjects ? '项目分组 / 프로젝트' : '已有内容 / 기존 항목'} <span>{list.length}</span>
             </h3>
             {list.length === 0 && !stillGroups?.length && <p className="admin__empty">还没有内容 / 항목이 없습니다</p>}
+            {list.length > 1 && (
+              <p className="admin__sorthint">
+                拖动左侧 ⠿ 调整顺序，松手自动保存{stillGroups ? '（静帧在各自项目内排序）' : ''}
+                <br />
+                왼쪽 ⠿ 를 드래그하면 순서가 바뀌고 자동 저장됩니다{stillGroups ? ' (스틸은 프로젝트 안에서 정렬)' : ''}
+              </p>
+            )}
             {stillGroups
               ? stillGroups.map((g) => (
                   <div className="admin__group" key={g.key}>
                     <p className="admin__grouphead">{g.title} <span>{g.rows.length}</span></p>
                     {g.rows.length === 0 && <p className="admin__empty">此项目暂无静帧 / 이 프로젝트에 스틸 없음</p>}
-                    {g.rows.map(renderRow)}
+                    <SortableList
+                      rows={g.rows}
+                      renderRow={renderRow}
+                      onReorder={(rows) => reorder('portfolio_works', rows)}
+                      disabled={busy === 'sort'}
+                    />
                   </div>
                 ))
-              : list.map(renderRow)}
+              : (
+                  <SortableList
+                    rows={list}
+                    renderRow={renderRow}
+                    onReorder={(rows) => reorder(isProjects ? 'portfolio_projects' : 'portfolio_works', rows)}
+                    disabled={busy === 'sort'}
+                  />
+                )}
           </div>
         </div>
         )}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { PROFILE, TABS, FILMS, IMAGE_GROUPS } from './data/works.js'
 import { loadContent } from './lib/content.js'
 import { useSwipeTabs } from './lib/useSwipeTabs.js'
@@ -7,7 +7,9 @@ import ImageSection from './components/ImageSection.jsx'
 import Profile from './components/Profile.jsx'
 import WorkDetail from './components/WorkDetail.jsx'
 import AuthModal from './components/AuthModal.jsx'
-import AdminPanel from './components/AdminPanel.jsx'
+// 管理面板只有登录后才用得到，按需加载，访客不用下载这部分代码
+// 관리 패널은 로그인 후에만 필요하므로 지연 로딩, 방문자는 이 코드를 받지 않음
+const AdminPanel = lazy(() => import('./components/AdminPanel.jsx'))
 import { supabase, isAuthConfigured } from './lib/supabase.js'
 
 export default function App() {
@@ -202,11 +204,13 @@ export default function App() {
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
 
       {adminOpen && user && (
-        <AdminPanel
-          onClose={() => setAdminOpen(false)}
-          onChanged={refreshContent}
-          contentSource={content.source}
-        />
+        <Suspense fallback={null}>
+          <AdminPanel
+            onClose={() => setAdminOpen(false)}
+            onChanged={refreshContent}
+            contentSource={content.source}
+          />
+        </Suspense>
       )}
 
       {detail && (

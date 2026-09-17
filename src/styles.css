@@ -1175,3 +1175,39 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 
 .admin__hint { margin: -6px 0 0; font-size: 12px; line-height: 1.7; color: var(--ink-60); }
 .admin__hint button { font-size: 12px; color: var(--key); text-decoration: underline; }
+
+/* ============================================================
+   ADMIN — 拖动排序 / 드래그 정렬
+   ============================================================ */
+.admin__row { display: flex; align-items: center; gap: 12px; }
+.admin__rowmain { flex: 1; }
+
+.admin__handle {
+  flex: none;
+  width: 26px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  font-size: 17px;
+  line-height: 1;
+  color: var(--ink-40);
+  border: 1px dashed transparent;
+  cursor: grab;
+  touch-action: none; /* 触屏上从把手拖动时不滚动页面 / 터치에서 손잡이 드래그 시 스크롤 방지 */
+  transition: color 0.2s, border-color 0.2s;
+}
+.admin__handle:hover { color: var(--ink); border-color: var(--ink-15); }
+.admin__handle:active { cursor: grabbing; }
+.admin__handle:focus-visible { outline: 2px solid var(--key); outline-offset: 1px; color: var(--ink); }
+
+.admin__sortable.is-dragging .admin__row {
+  border-color: var(--key);
+  box-shadow: 6px 6px 0 var(--key);
+}
+
+.admin__sorthint { margin: -4px 0 2px; font-size: 12px; line-height: 1.6; color: var(--ink-60); }
+
+@media (max-width: 720px) {
+  .admin__row { flex-wrap: wrap; }
+  .admin__actions { width: 100%; justify-content: flex-end; }
+}
