@@ -62,10 +62,6 @@ export default function WorkDetail({ works, index, onClose, onStep }) {
             <dl className="detail__facts">
               <div className="detail__fact"><dt>Category</dt><dd>{work.meta}</dd></div>
               {work.role && <div className="detail__fact"><dt>Role</dt><dd>{work.role}</dd></div>}
-              <div className="detail__fact"><dt>Index</dt><dd>{num} / {String(works.length).padStart(2, '0')}</dd></div>
-              {work.video && (
-                <div className="detail__fact"><dt>Trailer</dt><dd>可在左侧播放 / Playable above</dd></div>
-              )}
             </dl>
 
             <p className="detail__text">{work.body}</p>
