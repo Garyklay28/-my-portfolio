@@ -39,6 +39,27 @@ function parseMeta(value, options) {
     : { category: CUSTOM, custom: label, year }
 }
 
+/** 由图片/视频的宽高得出比例：接近常用比例就用常用的，否则约分成最简分数
+ *  이미지·영상 크기에서 비율 도출: 자주 쓰는 값에 가까우면 그 값, 아니면 기약분수 */
+const gcd = (a, b) => (b ? gcd(b, a % b) : a)
+
+function ratioFromSize(w, h) {
+  if (!w || !h) return null
+  const r = w / h
+  let best = null
+  let bestDiff = Infinity
+  for (const [opt] of RATIO_OPTIONS) {
+    const [a, b] = opt.split('/').map((n) => Number(n.trim()))
+    const diff = Math.abs(Math.log(a / b / r))
+    if (diff < bestDiff) { bestDiff = diff; best = opt }
+  }
+  if (bestDiff < 0.02) return best // 与常用比例相差 2% 以内 / 자주 쓰는 값과 2% 이내 차이
+  const g = gcd(w, h)
+  const a = w / g
+  const b = h / g
+  return a <= 32 && b <= 32 ? `${a} / ${b}` : best
+}
+
 const joinMeta = (label, year) => [tidy(label), tidy(year)].filter(Boolean).join(' · ')
 
 const EMPTY = {
@@ -149,8 +170,13 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
     const controller = new AbortController()
     abortRef.current = controller
     setErr(''); setMsg(''); setBusy(field)
+    // 先按素材尺寸填好比例：不依赖登录和压缩，选了文件就生效
+    // 소재 크기로 비율을 먼저 채움: 로그인·압축과 무관하게 파일을 고르는 즉시 반영
+    const ratio = await autoRatio(field, file)
+    if (ratio) setForm((f) => ({ ...f, ratio }))
+
     try {
-      // 先确认登录状态，免得压完才发现登录过期 / 압축 후에야 로그인 만료를 알게 되지 않도록 먼저 확인
+      // 再确认登录状态，免得压完才发现登录过期 / 압축 후에야 로그인 만료를 알게 되지 않도록 먼저 확인
       await requireSession()
 
       let toUpload = file
@@ -188,7 +214,8 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
       setForm((f) => ({ ...f, [field]: url }))
       if (field === 'video_url') setVideoPrep(null)
       const shrunk = uploadedSize < file.size ? `（${mb(file.size)}MB → ${mb(uploadedSize)}MB）` : ''
-      setMsg(`上传成功，记得点下方保存 / 업로드 성공, 아래에서 저장하세요: ${file.name} ${shrunk}${note}`)
+      const ratioNote = ratio ? ` · 比例已自动设为 ${ratio} / 비율 자동 설정` : ''
+      setMsg(`上传成功，记得点下方保存 / 업로드 성공, 아래에서 저장하세요: ${file.name} ${shrunk}${note}${ratioNote}`)
     } catch (e2) {
       if (e2.name === 'AbortError') setMsg('已取消 / 취소했습니다')
       else setErr(e2.message || String(e2))
@@ -200,6 +227,26 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
   }
 
   const cancelUpload = () => abortRef.current?.abort()
+
+  /** 上传的素材尺寸 → 自动填比例。视频只在还没有图片时才用，因为卡片显示的是图片。
+   *  업로드한 소재 크기 → 비율 자동 입력. 카드에는 이미지가 표시되므로, 영상은 이미지가 없을 때만 사용. */
+  async function autoRatio(field, file) {
+    try {
+      if (field === 'video_url') {
+        // 压缩只会等比缩小，所以用源文件尺寸算出的比例是一样的
+        // 압축은 비율을 유지하며 축소하므로 원본 크기로 계산해도 결과가 같음
+        if (form.image_url) return null
+        const size = videoPrep?.info
+        return size ? ratioFromSize(size.width, size.height) : null
+      }
+      const bitmap = await createImageBitmap(file)
+      const ratio = ratioFromSize(bitmap.width, bitmap.height)
+      bitmap.close?.()
+      return ratio
+    } catch {
+      return null
+    }
+  }
 
   // 排序由拖动决定：新增的条目放到当前分组末尾
   // 순서는 드래그로 결정: 새 항목은 해당 그룹의 맨 뒤에 추가
@@ -655,7 +702,7 @@ function RatioField({ value, onChange }) {
       {custom && (
         <input type="text" placeholder="例如 21 / 9 / 예: 21 / 9" value={value} onChange={(e) => emit(e.target.value)} />
       )}
-      <small className="mf__preview">卡片上图片的显示比例 / 카드에 표시되는 이미지 비율</small>
+      <small className="mf__preview">卡片上图片的显示比例，上传图片后会自动填 / 카드에 표시되는 이미지 비율, 이미지 업로드 시 자동 입력</small>
     </div>
   )
 }
