@@ -5,6 +5,42 @@ import UploadProgress from './UploadProgress.jsx'
 import ProfileEditor from './ProfileEditor.jsx'
 import SortableList from './SortableList.jsx'
 
+// 分类选项：下拉选择 + 年份，自动用统一的「 · 」拼接，避免手输标点造成格式不一致
+// 분류 선택: 드롭다운 + 연도, 항상 같은 「 · 」로 연결해 직접 입력에 따른 형식 불일치 방지
+const META_OPTIONS = {
+  film: ['Feature', 'Short', 'Documentary', 'Art Film', 'Series', 'AI Short', 'Commercial', 'Music Video'],
+  image: ['Still', 'Behind the Scenes', 'Poster', 'Photography'],
+  projects: ['Feature', 'Short', 'Documentary', 'Art Film', 'Series', 'AI Short'],
+}
+
+const RATIO_OPTIONS = [
+  ['16 / 9', '横向 / 가로'],
+  ['8 / 5', '横向 / 가로'],
+  ['3 / 2', '横向 / 가로'],
+  ['4 / 3', '横向 / 가로'],
+  ['1 / 1', '正方形 / 정사각형'],
+  ['4 / 5', '竖向 / 세로'],
+  ['2 / 3', '竖向 / 세로'],
+  ['9 / 16', '竖向 / 세로'],
+]
+
+const CUSTOM = '__custom__'
+/** 合并多余空白 / 불필요한 공백 정리 */
+const tidy = (v) => (v || '').replace(/\s+/g, ' ').trim()
+
+/** 把已有的分类文字拆成「类别 + 年份」/ 기존 분류 텍스트를 「분류 + 연도」로 분해 */
+function parseMeta(value, options) {
+  const parts = tidy(value).split(/\s*[·・•/]\s*/).map(tidy).filter(Boolean)
+  const year = parts.find((x) => /^(19|20)\d{2}$/.test(x)) || ''
+  const label = parts.filter((x) => x !== year).join(' · ')
+  if (!label) return { category: '', custom: '', year }
+  return options.includes(label)
+    ? { category: label, custom: '', year }
+    : { category: CUSTOM, custom: label, year }
+}
+
+const joinMeta = (label, year) => [tidy(label), tidy(year)].filter(Boolean).join(' · ')
+
 const EMPTY = {
   kind: 'film',
   project_id: null,
@@ -184,8 +220,8 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
     try {
       if (tab === 'projects') {
         const payload = {
-          title: form.title, title_cn: form.title_cn,
-          meta: form.meta, role: form.role, sort_order: sortOrderForSave(),
+          title: tidy(form.title), title_cn: tidy(form.title_cn),
+          meta: tidy(form.meta), role: tidy(form.role), sort_order: sortOrderForSave(),
         }
         const res = editingId
           ? await supabase.from('portfolio_projects').update(payload).eq('id', editingId)
@@ -195,7 +231,7 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
         const payload = {
           kind: tab,
           project_id: tab === 'image' ? form.project_id || null : null,
-          title: form.title, title_cn: form.title_cn, meta: form.meta, role: form.role,
+          title: tidy(form.title), title_cn: tidy(form.title_cn), meta: tidy(form.meta), role: tidy(form.role),
           body: form.body, body_en: form.body_en,
           image_url: form.image_url || null,
           video_url: form.video_url || null,
@@ -417,7 +453,7 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
 
             <Field label="标题 Title *" value={form.title} onChange={(v) => setForm({ ...form, title: v })} required />
             <Field label="中文名 / 한글명" value={form.title_cn} onChange={(v) => setForm({ ...form, title_cn: v })} />
-            <Field label="分类 Meta（如 Feature · 2025）" value={form.meta} onChange={(v) => setForm({ ...form, meta: v })} />
+            <MetaField tab={tab} value={form.meta} onChange={(v) => setForm({ ...form, meta: v })} />
             <Field label="职位 Role" value={form.role} onChange={(v) => setForm({ ...form, role: v })} />
 
             {!isProjects && (
@@ -474,7 +510,7 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
                   </MediaField>
                 )}
 
-                <Field label="比例 Ratio（如 16 / 9、2 / 3）" value={form.ratio} onChange={(v) => setForm({ ...form, ratio: v })} />
+                <RatioField value={form.ratio} onChange={(v) => setForm({ ...form, ratio: v })} />
               </>
             )}
 
@@ -531,6 +567,96 @@ function Field({ label, value, onChange, type = 'text', required }) {
       <span>{label}</span>
       <input type={type} value={value ?? ''} onChange={(e) => onChange(e.target.value)} required={required} />
     </label>
+  )
+}
+
+/** 分类：下拉选类别 + 填年份，输出统一格式 / 분류: 드롭다운 + 연도, 통일된 형식으로 출력 */
+function MetaField({ tab, value, onChange }) {
+  const options = META_OPTIONS[tab] ?? META_OPTIONS.film
+  const [state, setState] = useState(() => parseMeta(value, options))
+  const emitted = useRef(value)
+
+  // 外部改了值（比如点了「编辑」）时重新解析 / 외부에서 값이 바뀌면(편집 클릭 등) 다시 분해
+  useEffect(() => {
+    if (value !== emitted.current) {
+      emitted.current = value
+      setState(parseMeta(value, META_OPTIONS[tab] ?? META_OPTIONS.film))
+    }
+  }, [value, tab])
+
+  const update = (patch) => {
+    const next = { ...state, ...patch }
+    setState(next)
+    const out = joinMeta(next.category === CUSTOM ? next.custom : next.category, next.year)
+    emitted.current = out
+    onChange(out)
+  }
+
+  return (
+    <div className="auth__field">
+      <span>分类 Meta / 분류</span>
+      <div className="mf">
+        <select value={state.category} onChange={(e) => update({ category: e.target.value })}>
+          <option value="">（不填 / 없음）</option>
+          {options.map((o) => <option key={o} value={o}>{o}</option>)}
+          <option value={CUSTOM}>其他… / 직접 입력…</option>
+        </select>
+        <input
+          type="text"
+          inputMode="numeric"
+          placeholder="年份 / 연도"
+          value={state.year}
+          onChange={(e) => update({ year: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+        />
+      </div>
+      {state.category === CUSTOM && (
+        <input
+          type="text"
+          placeholder="自定义分类 / 직접 입력"
+          value={state.custom}
+          onChange={(e) => update({ custom: e.target.value })}
+        />
+      )}
+      <small className="mf__preview">
+        实际保存 / 실제 저장: <b>{tidy(value) || '（空 / 비어 있음）'}</b>
+      </small>
+    </div>
+  )
+}
+
+/** 比例：从常用比例里选，也可以自己填 / 비율: 자주 쓰는 값 중 선택, 직접 입력도 가능 */
+function RatioField({ value, onChange }) {
+  const isKnown = (v) => RATIO_OPTIONS.some(([opt]) => opt === v)
+  const [custom, setCustom] = useState(() => Boolean(value) && !isKnown(value))
+  const emitted = useRef(value)
+
+  useEffect(() => {
+    if (value !== emitted.current) {
+      emitted.current = value
+      setCustom(Boolean(value) && !isKnown(value))
+    }
+  }, [value])
+
+  const emit = (v) => { emitted.current = v; onChange(v) }
+
+  return (
+    <div className="auth__field">
+      <span>比例 Ratio / 비율</span>
+      <select
+        value={custom ? CUSTOM : value}
+        onChange={(e) => {
+          if (e.target.value === CUSTOM) setCustom(true)
+          else { setCustom(false); emit(e.target.value) }
+        }}
+      >
+        {RATIO_OPTIONS.map(([v, label]) => <option key={v} value={v}>{v}　{label}</option>)}
+        <option value={CUSTOM}>其他… / 직접 입력…</option>
+      </select>
+      {custom && (
+        <input type="text" placeholder="例如 21 / 9 / 예: 21 / 9" value={value} onChange={(e) => emit(e.target.value)} />
+      )}
+      <small className="mf__preview">卡片上图片的显示比例 / 카드에 표시되는 이미지 비율</small>
+    </div>
   )
 }
 
