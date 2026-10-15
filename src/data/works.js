@@ -88,6 +88,7 @@ export const TABS = [
   { id: 'profile', label: 'Profile', sub: '简介' },
   { id: 'film', label: 'Film', sub: '影片' },
   { id: 'images', label: 'Images', sub: '图片' },
+  { id: 'assignments', label: 'Assignments', sub: '과제 · 作业' },
 ]
 
 // ---------------- FILM ----------------

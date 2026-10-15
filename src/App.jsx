@@ -4,6 +4,7 @@ import { loadContent } from './lib/content.js'
 import { useSwipeTabs } from './lib/useSwipeTabs.js'
 import FilmSection from './components/FilmSection.jsx'
 import ImageSection from './components/ImageSection.jsx'
+import AssignmentSection from './components/AssignmentSection.jsx'
 import Profile from './components/Profile.jsx'
 import WorkDetail from './components/WorkDetail.jsx'
 import AuthModal from './components/AuthModal.jsx'
@@ -169,6 +170,7 @@ export default function App() {
           {tab === 'profile' && <Profile profile={profile} />}
           {tab === 'film' && <FilmSection films={content.films} onOpen={(i) => openDetail(content.films, i)} />}
           {tab === 'images' && <ImageSection groups={content.groups} onOpen={openDetail} />}
+          {tab === 'assignments' && <AssignmentSection />}
         </div>
       </main>
 
