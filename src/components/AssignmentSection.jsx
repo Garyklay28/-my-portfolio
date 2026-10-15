@@ -14,10 +14,10 @@ export default function AssignmentSection() {
     <section className="wrap">
       <header className="sechead">
         <div>
-          <p className="eyebrow">Coursework / 과제 · 作业</p>
-          <h2 className="slab sechead__title">Assignments</h2>
+          <p className="eyebrow">Prompt &amp; AI Projects / 项目</p>
+          <h2 className="slab sechead__title">Projects</h2>
         </div>
-        <p className="sechead__count">Week 2 — Week 7 · {String(ASSIGNMENTS.length).padStart(2, '0')} Items</p>
+        <p className="sechead__count">{String(ASSIGNMENTS.length).padStart(2, '0')} Projects — Week 2 to 7</p>
       </header>
 
       {ASSIGNMENTS.map((a) => (
