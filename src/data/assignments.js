@@ -1,4 +1,4 @@
-// 课程作业（프롬프트 엔지니어링 수업 Week 2 ~ 7）
+// 课程作业（프롬프트 엔지니어링 수업 Week 2 ~ 8）
 // 수업 과제 목록. 파일은 public/assignments/ 아래에 있고, 이 목록만 고치면 페이지가 바뀝니다.
 //
 // files[].kind
@@ -7,6 +7,10 @@
 //   'code'  → 新标签页打开源码 / 새 탭에서 소스 열기
 //   'play'  → 可直接游玩的网页 / 바로 플레이할 수 있는 웹 페이지
 //   'repo'  → GitHub 仓库 / GitHub 저장소
+//   'figma' → Figma 文件 / Figma 파일
+//   'img'   → 新标签页打开图片 / 새 탭에서 이미지 열기
+//
+// video 대신 image: { src, alt, ratio } 를 넣으면 왼쪽에 이미지가 표시됩니다 / 用 image 代替 video 时左侧显示图片
 
 const GAME_URL = 'https://coffee-delivery-game-week3-sigma.vercel.app'
 const GAME_REPO = 'https://github.com/Garyklay28/coffee-delivery-game-week3'
@@ -106,6 +110,27 @@ export const ASSIGNMENTS = [
     files: [
       { kind: 'md', label: 'README.md', href: '/assignments/w07/README.md' },
       { kind: 'repo', label: 'week6_skills_package', href: 'https://github.com/Garyklay28/week6_skills_package' },
+    ],
+  },
+  {
+    id: 'w08',
+    week: 'W8',
+    date: '2026-10-18',
+    title: 'Figma 플러그인 — 포트폴리오 캔버스 · 브로슈어 · 명함',
+    titleCn: 'Figma 插件 · 作品集画布 · 宣传册 · 名片',
+    body: 'Claude Code + Figma 플러그인(MCP)으로 이 사이트를 구역(Z1–Z22)으로 나눠 데스크톱 1440 · 아이패드 834 · 모바일 390 세로 캔버스로 1:1 재현(텍스트 · 사진 개별 편집 가능). 같은 페이지에 Figma AI 이미지 생성으로 만든 키 비주얼 기반의 타란티노 · 필름 스타일 브로슈어 1장과, 郭宇骅 서명 로고를 넣은 Kill Bill 배색 명함(앞 · 뒤)을 추가했다.',
+    bodyCn: '用 Claude Code + Figma 插件（MCP）把这个网站按区域（Z1–Z22）拆分，1:1 还原成桌面 1440 · iPad 834 · 手机 390 三条竖向画布（文字、照片都可单独编辑）。同一页面里加入了以 Figma AI 生图主视觉为核心的昆汀 · 胶片风宣传册 1 页，以及带“郭宇骅”签名 Logo 的 Kill Bill 配色名片（正反面）。',
+    image: {
+      src: '/assignments/w08/preview.jpg',
+      alt: '브로슈어와 명함 앞·뒤 / 宣传册与名片正反面',
+      ratio: '3 / 2',
+    },
+    files: [
+      { kind: 'figma', label: 'Figma 파일 / 文件', href: 'https://www.figma.com/design/qgafG5BJ533cOKJ7ACpHPE' },
+      { kind: 'pdf', label: '브로슈어 / 宣传册', href: '/assignments/w08/brochure-behind-the-image.pdf' },
+      { kind: 'img', label: '명함 앞면 / 名片正面', href: '/assignments/w08/business-card-front.png' },
+      { kind: 'img', label: '명함 뒷면 / 名片背面', href: '/assignments/w08/business-card-back.png' },
+      { kind: 'md', label: 'PROMPTS.md', href: '/assignments/w08/PROMPTS.md' },
     ],
   },
   {
