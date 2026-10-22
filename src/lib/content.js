@@ -1,5 +1,6 @@
 import { supabase, isAuthConfigured } from './supabase.js'
 import { FILMS, IMAGE_GROUPS, PROFILE } from '../data/works.js'
+import { ASSIGNMENTS } from '../data/assignments.js'
 
 /**
  * 内容加载：优先读 Supabase，失败或为空时回退到 src/data/works.js 的示例数据。
@@ -9,7 +10,64 @@ import { FILMS, IMAGE_GROUPS, PROFILE } from '../data/works.js'
  * 덕분에 DB 미생성·네트워크 장애·빈 테이블 상황에서도 사이트가 정상 동작합니다.
  */
 
-const STATIC = { source: 'static', films: FILMS, groups: IMAGE_GROUPS, profile: PROFILE }
+const STATIC = { source: 'static', films: FILMS, groups: IMAGE_GROUPS, profile: PROFILE, assignments: ASSIGNMENTS }
+
+/** DB 行 → Projects 页需要的形状 / DB 행 → Projects 페이지가 기대하는 형태 */
+function toAssignment(row) {
+  return {
+    id: row.id,
+    week: row.week || '',
+    date: row.date || '',
+    title: row.title,
+    titleCn: row.title_cn || '',
+    body: row.body || '',
+    bodyCn: row.body_cn || '',
+    video: row.video?.src ? row.video : null,
+    image: row.image?.src ? row.image : null,
+    files: Array.isArray(row.files) ? row.files.filter((f) => f?.href) : [],
+    _row: row,
+  }
+}
+
+/** 读取课程作业；表不存在或为空时回退到代码里的示例
+ *  과제 로딩; 테이블 부재·데이터 없음이면 코드의 샘플로 폴백 */
+export async function loadAssignments() {
+  if (!isAuthConfigured) return ASSIGNMENTS
+  try {
+    const { data, error } = await supabase
+      .from('portfolio_assignments')
+      .select('*')
+      .order('sort_order', { ascending: true })
+    if (error) {
+      console.warn('[assignments] 读取失败，回退到示例数据 /', error)
+      return ASSIGNMENTS
+    }
+    return data?.length ? data.map(toAssignment) : ASSIGNMENTS
+  } catch (err) {
+    console.warn('[assignments] 加载异常，回退到示例数据 /', err)
+    return ASSIGNMENTS
+  }
+}
+
+/** 把代码里的课程作业一次性导入数据库 / 코드의 과제를 DB 로 일괄 가져오기 */
+export async function seedAssignments() {
+  if (!isAuthConfigured) throw new Error('Supabase 未配置 / Supabase 미설정')
+  const rows = ASSIGNMENTS.map((a, i) => ({
+    week: a.week ?? null,
+    date: a.date ?? null,
+    title: a.title,
+    title_cn: a.titleCn ?? null,
+    body: a.body ?? null,
+    body_cn: a.bodyCn ?? null,
+    video: a.video ?? null,
+    image: a.image ?? null,
+    files: a.files ?? [],
+    sort_order: i,
+  }))
+  const { data, error } = await supabase.from('portfolio_assignments').insert(rows).select('id')
+  if (error) throw error
+  return data?.length ?? 0
+}
 
 /** DB 行 → PROFILE 形状；缺失的字段回退到示例数据
  *  DB 행 → PROFILE 형태; 누락 필드는 샘플 데이터로 폴백 */
@@ -91,10 +149,11 @@ export async function loadContent() {
   if (!isAuthConfigured) return STATIC
 
   try {
-    const [projectsRes, worksRes, profile] = await Promise.all([
+    const [projectsRes, worksRes, profile, assignments] = await Promise.all([
       supabase.from('portfolio_projects').select('*').order('sort_order', { ascending: true }),
       supabase.from('portfolio_works').select('*').order('sort_order', { ascending: true }),
       loadProfile(),
+      loadAssignments(),
     ])
 
     if (projectsRes.error || worksRes.error) {
@@ -103,7 +162,7 @@ export async function loadContent() {
     }
 
     const rows = worksRes.data ?? []
-    if (rows.length === 0) return { ...STATIC, source: 'static-empty', profile }
+    if (rows.length === 0) return { ...STATIC, source: 'static-empty', profile, assignments }
 
     const films = rows.filter((r) => r.kind === 'film').map(toWork)
 
@@ -120,6 +179,7 @@ export async function loadContent() {
     return {
       source: 'supabase',
       profile,
+      assignments,
       films: films.length ? films : FILMS,
       groups: groups.filter((g) => g.items.length > 0).length ? groups : IMAGE_GROUPS,
     }

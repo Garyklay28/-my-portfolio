@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from 'react'
-import { ASSIGNMENTS } from '../data/assignments.js'
+import { ASSIGNMENTS as FALLBACK } from '../data/assignments.js'
 
 // Markdown 阅读器只在点开文档时才加载 / Markdown 뷰어는 문서를 열 때만 로딩
 const DocViewer = lazy(() => import('./DocViewer.jsx'))
@@ -7,7 +7,8 @@ const DocViewer = lazy(() => import('./DocViewer.jsx'))
 const KIND_LABEL = { md: 'MD', pdf: 'PDF', code: 'CODE', play: 'PLAY', repo: 'GIT', figma: 'FIGMA', img: 'IMG' }
 
 /** 课程作业页：按周排列，视频直接播放，文档在页面内阅读 / 과제 페이지: 주차별, 영상은 바로 재생, 문서는 페이지 안에서 읽기 */
-export default function AssignmentSection() {
+export default function AssignmentSection({ assignments }) {
+  const ASSIGNMENTS = assignments?.length ? assignments : FALLBACK
   const [doc, setDoc] = useState(null)
 
   return (

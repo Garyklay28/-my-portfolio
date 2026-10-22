@@ -4,6 +4,7 @@ import { uploadMedia, seedFromStatic, requireSession, MAX_UPLOAD_MB } from '../l
 import UploadProgress from './UploadProgress.jsx'
 import ProfileEditor from './ProfileEditor.jsx'
 import SortableList from './SortableList.jsx'
+import AssignmentEditor from './AssignmentEditor.jsx'
 
 // 分类选项：下拉选择 + 年份，自动用统一的「 · 」拼接，避免手输标点造成格式不一致
 // 분류 선택: 드롭다운 + 연도, 항상 같은 「 · 」로 연결해 직접 입력에 따른 형식 불일치 방지
@@ -443,7 +444,7 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
       </div>
 
       <div className="wrap admin__body">
-        {contentSource !== 'supabase' && tab !== 'profile' && (
+        {contentSource !== 'supabase' && tab !== 'profile' && tab !== 'assignments' && (
           <div className="admin__banner">
             <p>
               网站当前显示的是<b>代码里的示例作品</b>，数据库还是空的。点下面的按钮可以把它们一次性导入数据库，之后就能在这里编辑。
@@ -457,14 +458,14 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
         )}
 
         <div className="admin__tabs" role="tablist">
-          {[['film', 'Film 影片'], ['image', 'Images 图片'], ['profile', 'Profile 简介']].map(([id, label]) => {
+          {[['film', 'Film 影片'], ['image', 'Images 图片'], ['assignments', 'Projects 项目'], ['profile', 'Profile 简介']].map(([id, label]) => {
             const selected = id === 'image' ? inImages : tab === id
             return (
               <button
                 key={id}
                 role="tab"
                 aria-selected={selected}
-                onClick={() => { if (selected) return; setTab(id); if (id !== 'profile') resetForm(id) }}
+                onClick={() => { if (selected) return; setTab(id); if (id !== 'profile' && id !== 'assignments') resetForm(id) }}
               >
                 {label}
               </button>
@@ -474,7 +475,7 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
 
         {inImages && (
           <div className="admin__subtabs" role="tablist" aria-label="Images">
-            {[['image', '静帧 Stills / 스틸'], ['projects', '项目分组 Projects / 프로젝트']].map(([id, label]) => (
+            {[['image', '静帧 Stills / 스틸'], ['projects', '分组 Groups / 그룹']].map(([id, label]) => (
               <button key={id} role="tab" aria-selected={tab === id} onClick={() => { setTab(id); resetForm(id) }}>
                 {label}
               </button>
@@ -487,6 +488,8 @@ export default function AdminPanel({ onClose, onChanged, contentSource }) {
 
         {tab === 'profile' ? (
           <ProfileEditor onSaved={onChanged} />
+        ) : tab === 'assignments' ? (
+          <AssignmentEditor onChanged={onChanged} />
         ) : (
         <div className="admin__cols">
           {/* ---------- 表单 / 폼 ---------- */}

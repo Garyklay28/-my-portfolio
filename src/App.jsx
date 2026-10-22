@@ -170,7 +170,7 @@ export default function App() {
           {tab === 'profile' && <Profile profile={profile} />}
           {tab === 'film' && <FilmSection films={content.films} onOpen={(i) => openDetail(content.films, i)} />}
           {tab === 'images' && <ImageSection groups={content.groups} onOpen={openDetail} />}
-          {tab === 'assignments' && <AssignmentSection />}
+          {tab === 'assignments' && <AssignmentSection assignments={content.assignments} />}
         </div>
       </main>
 

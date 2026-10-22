@@ -1297,3 +1297,19 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 @media (max-width: 900px) {
   .asg__grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Projects（课程作业）编辑表单里的分组 / Projects(과제) 편집 폼의 그룹 */
+.asgf { border: 1px solid var(--ink-15); padding: 12px; display: grid; gap: 11px; margin: 0; }
+.asgf legend {
+  font-family: var(--label);
+  font-size: 12.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--key);
+  padding: 0 6px;
+}
+.asgf legend span { color: var(--ink-40); }
+.asgf__file { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 560px) {
+  .asgf__file { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.4fr); }
+}
