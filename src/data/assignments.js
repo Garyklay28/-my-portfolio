@@ -1,4 +1,4 @@
-// 课程作业（프롬프트 엔지니어링 수업 Week 2 ~ 8）
+// 课程作业（프롬프트 엔지니어링 수업 Week 2 ~ 9）
 // 수업 과제 목록. 파일은 public/assignments/ 아래에 있고, 이 목록만 고치면 페이지가 바뀝니다.
 //
 // files[].kind
@@ -11,6 +11,7 @@
 //   'img'   → 新标签页打开图片 / 새 탭에서 이미지 열기
 //
 // video 대신 image: { src, alt, ratio } 를 넣으면 왼쪽에 이미지가 표시됩니다 / 用 image 代替 video 时左侧显示图片
+// 둘 다 넣으면 영상 아래에 이미지가 붙고, image.href 가 있으면 클릭 시 원본을 엽니다 / 两者都有时图片接在视频下方，image.href 为点击打开的原图
 
 const GAME_URL = 'https://coffee-delivery-game-week3-sigma.vercel.app'
 const GAME_REPO = 'https://github.com/Garyklay28/coffee-delivery-game-week3'
@@ -131,6 +132,30 @@ export const ASSIGNMENTS = [
       { kind: 'img', label: '명함 앞면 / 名片正面', href: '/assignments/w08/business-card-front.png' },
       { kind: 'img', label: '명함 뒷면 / 名片背面', href: '/assignments/w08/business-card-back.png' },
       { kind: 'md', label: 'PROMPTS.md', href: '/assignments/w08/PROMPTS.md' },
+    ],
+  },
+  {
+    id: 'w09',
+    week: 'W9',
+    date: '2026-10-22',
+    title: 'Next Big Thing — TapNow AI 단편 · 지하철 훔쳐보기',
+    titleCn: 'Next Big Thing · TapNow AI 短片 · 地铁偷瞄',
+    body: '시드니 지하철에서 청년이 옆자리 아저씨의 휴대폰을 훔쳐보는데, 화면에 떠 있는 건 자신의 포트폴리오. Claude로 11컷 콘티를 쓰고, TapNow 캔버스에서 Nano Banana로 주인공 4면도 · 빈 객차 · 소품 · 키프레임을 만든 뒤 Seedance 2.5에 레퍼런스 8장과 타임코드 프롬프트 하나를 넣어 25초를 한 번에 생성했다.',
+    bodyCn: '悉尼地铁上，年轻人偷瞄邻座大叔的手机，屏幕上正在看的是他自己的作品集。先用 Claude 写 11 镜分镜，再在 TapNow 画布里用 Nano Banana 做主角四视图、空车厢、道具和定帧，最后把 8 张参考图和一条带时间码的提示词交给 Seedance 2.5，一次生成 25 秒。',
+    video: {
+      src: '/assignments/w09/next-big-thing.mp4',
+      poster: '/assignments/w09/next-big-thing.jpg',
+      ratio: '16 / 9',
+    },
+    image: {
+      src: '/assignments/w09/workflow-preview.jpg',
+      href: '/assignments/w09/workflow.jpg',
+      alt: '제작 과정 이미지 / 制作流程图',
+      ratio: '16 / 9',
+    },
+    files: [
+      { kind: 'img', label: '제작 과정 / 制作流程图', href: '/assignments/w09/workflow.jpg' },
+      { kind: 'md', label: 'PROMPTS.md', href: '/assignments/w09/PROMPTS.md' },
     ],
   },
   {

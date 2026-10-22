@@ -1251,6 +1251,7 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 .asg__media { border: 1px solid var(--ink-15); background: #000; }
 .asg__media video { width: 100%; height: auto; display: block; object-fit: contain; }
 .asg__media img { width: 100%; height: auto; display: block; object-fit: cover; }
+.asg__media > * + * { border-top: 1px solid var(--ink-15); }
 .asg__text { font-size: 15.5px; line-height: 1.85; margin: 0; }
 .asg__text--cn { margin-top: 10px; color: var(--ink-60); }
 .asg__files { list-style: none; padding: 0; margin: 22px 0 0; display: flex; flex-wrap: wrap; gap: 10px; }

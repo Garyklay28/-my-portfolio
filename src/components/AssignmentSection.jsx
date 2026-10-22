@@ -17,7 +17,7 @@ export default function AssignmentSection() {
           <p className="eyebrow">Prompt &amp; AI Projects / 项目</p>
           <h2 className="slab sechead__title">Projects</h2>
         </div>
-        <p className="sechead__count">{String(ASSIGNMENTS.length).padStart(2, '0')} Projects — Week 2 to 8</p>
+        <p className="sechead__count">{String(ASSIGNMENTS.length).padStart(2, '0')} Projects — Week 2 to 9</p>
       </header>
 
       {ASSIGNMENTS.map((a) => (
@@ -32,19 +32,23 @@ export default function AssignmentSection() {
           </header>
 
           <div className={a.video || a.image ? 'asg__grid' : 'asg__grid asg__grid--text'}>
-            {a.video && (
+            {(a.video || a.image) && (
               <div className="asg__media">
-                <video controls preload="none" playsInline poster={a.video.poster} style={{ aspectRatio: a.video.ratio }}>
-                  <source src={a.video.src} type="video/mp4" />
-                  {a.video.captions && (
-                    <track kind="subtitles" src={a.video.captions} srcLang="en" label="English" default />
-                  )}
-                </video>
-              </div>
-            )}
-            {a.image && (
-              <div className="asg__media">
-                <img src={a.image.src} alt={a.image.alt} loading="lazy" style={{ aspectRatio: a.image.ratio }} />
+                {a.video && (
+                  <video controls preload="none" playsInline poster={a.video.poster} style={{ aspectRatio: a.video.ratio }}>
+                    <source src={a.video.src} type="video/mp4" />
+                    {a.video.captions && (
+                      <track kind="subtitles" src={a.video.captions} srcLang="en" label="English" default />
+                    )}
+                  </video>
+                )}
+                {a.image && (a.image.href ? (
+                  <a href={a.image.href} target="_blank" rel="noreferrer">
+                    <img src={a.image.src} alt={a.image.alt} loading="lazy" style={{ aspectRatio: a.image.ratio }} />
+                  </a>
+                ) : (
+                  <img src={a.image.src} alt={a.image.alt} loading="lazy" style={{ aspectRatio: a.image.ratio }} />
+                ))}
               </div>
             )}
 
