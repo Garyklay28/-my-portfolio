@@ -261,6 +261,7 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 }
 /* 铺满卡片框：用绝对定位而不是 height:100%，这样 Safari 也不会在底部留白边
    카드 틀을 가득 채움: height:100% 대신 절대 위치를 써서 Safari 에서도 아래쪽 흰 여백이 생기지 않음 */
+.card__img.is-tall { object-position: center 28%; }
 .card__frame > img,
 .card__frame > .ph {
   position: absolute;
@@ -272,6 +273,7 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
   filter: grayscale(1) contrast(1.08) brightness(0.98);
   transform: scale(1);
   transition: filter 0.55s cubic-bezier(0.2, 0.7, 0.3, 1), transform 0.55s cubic-bezier(0.2, 0.7, 0.3, 1);
@@ -349,12 +351,22 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
   line-height: 1.2;
   text-transform: uppercase;
   margin: 0;
+  /* 固定两行高度，标题长短不影响卡片高度；超过两行省略
+     제목 영역을 두 줄로 고정해 길이와 무관하게 카드 높이가 같고, 넘치면 생략 */
+  min-height: 2.4em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .card__sub {
   font-size: 12.5px;
   letter-spacing: 0.05em;
   color: var(--ink-60);
   margin: 4px 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .card:focus-visible { outline: 3px solid var(--key); outline-offset: 4px; }
 
@@ -432,22 +444,20 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 }
 
 /* ============================================================
-   作品网格 work grid（瀑布流，按阅读顺序排列）
-   작품 그리드 (메이슨리, 읽는 순서대로 배치)
+   作品网格 work grid（卡片等大，行列对齐）
+   작품 그리드 (카드 크기 동일, 행·열 정렬)
    ============================================================ */
-.mg {
+.wg {
   display: grid;
-  grid-template-columns: repeat(var(--mg-cols, 3), minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: clamp(18px, 2.4vw, 34px);
   align-items: start;
   padding-block: clamp(26px, 3.4vw, 46px) clamp(48px, 7vw, 96px);
 }
-.mg__col {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(18px, 2.4vw, 34px);
-  min-width: 0;
-}
+.wg > * { min-width: 0; }
+
+@media (max-width: 1100px) { .wg { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .wg { grid-template-columns: minmax(0, 1fr); } }
 
 /* ============================================================
    详情 detail (图片 + 说明 左右两栏)
@@ -506,7 +516,16 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 }
 .detail__grid > * { min-width: 0; }
 .detail__media { border: 1px solid var(--ink-15); background: var(--paper-2); }
-.detail__media img { width: 100%; height: auto; filter: saturate(1.15) contrast(1.04); }
+.detail__media img {
+  width: 100%;
+  height: auto;
+  /* 详情页显示完整图：忽略卡片用的比例，按图片原始比例渲染
+     상세에서는 전체 이미지 표시: 카드용 비율을 무시하고 원본 비율로 렌더링 */
+  aspect-ratio: auto !important;
+  object-fit: contain;
+  object-position: center;
+  filter: saturate(1.15) contrast(1.04);
+}
 .detail__video { width: 100%; height: auto; display: block; background: #000; aspect-ratio: 16 / 9; }
 .detail__body { position: sticky; top: calc(var(--nav-h) + 28px); }
 .detail__index {
