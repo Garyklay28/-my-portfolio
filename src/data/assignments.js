@@ -1,4 +1,4 @@
-// 课程作业（프롬프트 엔지니어링 수업 Week 2 ~ 9）
+// 课程作业（프롬프트 엔지니어링 수업 Week 2 ~ 12）
 // 수업 과제 목록. 파일은 public/assignments/ 아래에 있고, 이 목록만 고치면 페이지가 바뀝니다.
 //
 // files[].kind
@@ -156,6 +156,24 @@ export const ASSIGNMENTS = [
     files: [
       { kind: 'img', label: '제작 과정 / 制作流程图', href: '/assignments/w09/workflow.jpg' },
       { kind: 'md', label: 'PROMPTS.md', href: '/assignments/w09/PROMPTS.md' },
+    ],
+  },
+  {
+    id: 'w12',
+    week: 'W12',
+    date: '2026-11-25',
+    title: '멀티에이전트 영상 제작 — 시간을 더 잘 쓰는 5가지 습관',
+    titleCn: '多智能体视频制作 · 更好安排时间的 5 个习惯',
+    body: 'YouTube 화이트보드 강의 영상의 형식(16:9, 약 3.4초마다 장면 전환, 자막 바 대신 문자 카드, 배경음악 없음)을 측정하고, 역할을 나눈 Claude Code 서브에이전트 8개(레퍼런스 분석 · 사실 확인 · 대본 · 내레이션 · 화면 · 효과음 · 편집 · 검수)가 파일로 결과를 주고받으며 2분 50초 손그림 화이트보드 영상을 만들었다. 60문장 한국어 내레이션은 AI 음성 합성(Supertonic 2, 남성 음색)으로 문장마다 여러 벌을 만들어 받아쓰기로 대본과 일치하는 것만 썼고, 화면은 2D canvas, 효과음은 Web Audio 합성으로 렌더와 인코딩까지 모두 브라우저 안에서 처리했다.',
+    bodyCn: '先测量一支 YouTube 白板讲解视频的形式（16:9、约每 3.4 秒换一个画面、用文字卡代替字幕条、没有背景音乐），再由分工明确的 8 个 Claude Code 子代理（参考分析 · 事实核查 · 文案 · 旁白 · 画面 · 音效 · 剪辑 · 检查）通过文件交接，做出 2 分 50 秒的手绘白板视频。60 句韩语旁白用 AI 语音合成（Supertonic 2，男声）每句生成多个版本，只采用转写与文案一致的版本；画面用 2D canvas，音效用 Web Audio 合成，渲染和编码全部在浏览器内完成。',
+    video: {
+      src: '/assignments/w12/time-habits.mp4',
+      poster: '/assignments/w12/time-habits.jpg',
+      ratio: '16 / 9',
+    },
+    files: [
+      { kind: 'repo', label: 'reference-style-video-agents', href: 'https://github.com/Garyklay28/reference-style-video-agents' },
+      { kind: 'md', label: 'SKILL.md', href: '/assignments/w12/SKILL.md' },
     ],
   },
   {
