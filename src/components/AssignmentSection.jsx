@@ -18,7 +18,7 @@ export default function AssignmentSection({ assignments }) {
           <p className="eyebrow">Prompt &amp; AI Projects / 项目</p>
           <h2 className="slab sechead__title">Projects</h2>
         </div>
-        <p className="sechead__count">{String(ASSIGNMENTS.length).padStart(2, '0')} Projects — Week 2 to 9</p>
+        <p className="sechead__count">{String(ASSIGNMENTS.length).padStart(2, '0')} Projects — Week 2 to 12</p>
       </header>
 
       {ASSIGNMENTS.map((a) => (
